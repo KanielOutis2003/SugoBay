@@ -1,0 +1,100 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:latlong2/latlong.dart';
+
+class AppConstants {
+  static String _env(String key, String fallback) {
+    final value = dotenv.env[key]?.trim();
+    return value == null || value.isEmpty ? fallback : value;
+  }
+
+  // Supabase - ANON KEY ONLY in Flutter app
+  static String get supabaseUrl => _env('SUPABASE_URL', 'YOUR_SUPABASE_URL');
+  static String get supabaseAnonKey =>
+      _env('SUPABASE_ANON_KEY', 'YOUR_SUPABASE_ANON_KEY');
+
+  // OpenStreetMap default center (Ubay, Bohol)
+  static const LatLng defaultMapCenter = LatLng(10.0570, 124.4703);
+
+  // App Info
+  static const String appName = 'SugoBay';
+  static const String tagline = 'Sugo para sa tanan sa Ubay';
+  static const String version = '2.0.0';
+
+  // Delivery Fee
+  static const double baseDeliveryFee = 30.0;
+  static const double maxDeliveryRadiusKm = 15.0;
+  static const double errandFee = 50.0;
+  static const double commissionRate = 0.10;
+  static const double errandFeeCutPercent = 0.20;
+  static const double riderDeliveryFeePercent = 0.75;
+  static const double incentivePerOrder = 5.0;
+
+  // Rider GPS
+  static const int gpsUpdateIntervalSeconds = 5;
+
+  // Auto-rate
+  static const int autoRateHours = 24;
+
+  // Rider Shifts
+  static const Map<String, Map<String, int>> shifts = {
+    'morning': {'start': 6, 'end': 12},
+    'lunch': {'start': 11, 'end': 14},
+    'afternoon': {'start': 14, 'end': 18},
+    'evening': {'start': 17, 'end': 21},
+  };
+
+  // Admin panel URL
+  static String get adminPanelUrl =>
+      _env('ADMIN_PANEL_URL', 'https://sugobay-admin.netlify.app');
+}
+
+class AppColors {
+  static const Color primaryBg = Color(0xFF1A1C20);
+  static const Color teal = Color(0xFF2A9D8F);
+  static const Color coral = Color(0xFFE76F51);
+  static const Color gold = Color(0xFFE9C46A);
+  static const Color accentGold = Color(0xFFD4AF37);
+  static const Color white = Colors.white;
+  static const Color lightGrey = Color(0xFFF5F5F5);
+  static const Color darkGrey = Color(0xFF2D2F34);
+  static const Color cardBg = Color(0xFF23252A);
+  static const Color success = Color(0xFF4CAF50);
+  static const Color error = Color(0xFFE53935);
+  static const Color warning = Color(0xFFFFA726);
+
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [teal, coral],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient goldGradient = LinearGradient(
+    colors: [gold, accentGold],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+}
+
+class AppTextStyles {
+  static const TextStyle heading = TextStyle(
+    fontSize: 24,
+    fontWeight: FontWeight.bold,
+    color: Colors.white,
+  );
+  static const TextStyle subheading = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+  );
+  static const TextStyle body = TextStyle(fontSize: 14, color: Colors.white70);
+  static const TextStyle caption = TextStyle(
+    fontSize: 12,
+    color: Colors.white54,
+  );
+  static const TextStyle button = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+  );
+}
