@@ -288,17 +288,26 @@ alter table app_settings enable row level security;
 create policy "Users read own" on users for select using (auth.uid() = id);
 create policy "Users insert own" on users for insert with check (auth.uid() = id);
 create policy "Users update own" on users for update using (auth.uid() = id);
+create policy "Admins manage all users" on users for all using (
+  (select role from users where id = auth.uid()) = 'admin'
+);
 
 -- Merchants: everyone reads approved, owner manages own
 create policy "Read approved merchants" on merchants for select using (is_approved = true and is_active = true);
 create policy "Owner reads own merchant" on merchants for select using (user_id = auth.uid());
 create policy "Owner inserts merchant" on merchants for insert with check (user_id = auth.uid());
 create policy "Owner updates merchant" on merchants for update using (user_id = auth.uid());
+create policy "Admins manage all merchants" on merchants for all using (
+  (select role from users where id = auth.uid()) = 'admin'
+);
 
 -- Menu Items: everyone reads available, merchant owner manages
 create policy "Read available menu items" on menu_items for select using (is_available = true);
 create policy "Merchant manages menu" on menu_items for all using (
   merchant_id in (select id from merchants where user_id = auth.uid())
+);
+create policy "Admins manage all menu items" on menu_items for all using (
+  (select role from users where id = auth.uid()) = 'admin'
 );
 
 -- Orders: customer reads own, merchant reads own, rider reads assigned
@@ -314,6 +323,9 @@ create policy "Rider updates order" on orders for update using (rider_id = auth.
 create policy "Merchant updates order" on orders for update using (
   merchant_id in (select id from merchants where user_id = auth.uid())
 );
+create policy "Admins manage all orders" on orders for all using (
+  (select role from users where id = auth.uid()) = 'admin'
+);
 
 -- Order Items
 create policy "Read own order items" on order_items for select using (
@@ -321,6 +333,9 @@ create policy "Read own order items" on order_items for select using (
 );
 create policy "Customer inserts order items" on order_items for insert with check (
   order_id in (select id from orders where customer_id = auth.uid())
+);
+create policy "Admins manage all order items" on order_items for all using (
+  (select role from users where id = auth.uid()) = 'admin'
 );
 
 -- Pahapit Requests
@@ -330,6 +345,9 @@ create policy "Rider reads available pahapit" on pahapit_requests for select usi
 );
 create policy "Customer creates pahapit" on pahapit_requests for insert with check (customer_id = auth.uid());
 create policy "Rider updates pahapit" on pahapit_requests for update using (rider_id = auth.uid());
+create policy "Admins manage all pahapit" on pahapit_requests for all using (
+  (select role from users where id = auth.uid()) = 'admin'
+);
 
 -- Rider Locations
 create policy "Rider manages own location" on rider_locations for all using (rider_id = auth.uid());

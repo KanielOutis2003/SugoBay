@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'YOUR_SUPABASE_URL'
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SERVICE_ROLE_KEY'
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'YOUR_ANON_KEY'
 
-// IMPORTANT: React admin uses SERVICE ROLE KEY only
-export const supabase = createClient(supabaseUrl, supabaseServiceKey)
+// Use the anon key and let RLS handle security
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Helper types
 export interface User {

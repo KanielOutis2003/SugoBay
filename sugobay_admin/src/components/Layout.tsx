@@ -1,8 +1,9 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, ShoppingBag, Truck, Store, Bike,
-  Users, DollarSign, AlertCircle, Megaphone, Settings
+  Users, DollarSign, AlertCircle, Megaphone, Settings, LogOut
 } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -18,6 +19,13 @@ const navItems = [
 ]
 
 export default function Layout() {
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    navigate('/login')
+  }
+
   return (
     <div className="flex h-screen bg-[#1A1C20]">
       {/* Sidebar */}
@@ -47,8 +55,17 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="p-4 border-t border-[#2D2F34] text-xs text-gray-500">
-          SugoBay v2.0
+        <div className="p-4 border-t border-[#2D2F34] flex flex-col gap-4">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-2 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors w-full"
+          >
+            <LogOut size={18} />
+            Sign Out
+          </button>
+          <div className="text-xs text-gray-500">
+            SugoBay v2.0
+          </div>
         </div>
       </aside>
 
