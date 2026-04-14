@@ -46,7 +46,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
     try {
       final order = await SupabaseService.orders()
-          .select('*, users!orders_customer_id_fkey(full_name, phone)')
+          .select('*, users!orders_customer_id_fkey(name, phone)')
           .eq('id', widget.orderId)
           .single();
 
@@ -105,7 +105,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
       if (mounted) {
         showSugoBaySnackBar(
-            context, 'Order updated to ${newStatus.replaceAll('_', ' ')}');
+          context,
+          'Order updated to ${newStatus.replaceAll('_', ' ')}',
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -129,13 +131,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child:
-                const Text('No', style: TextStyle(color: Colors.white54)),
+            child: const Text('No', style: TextStyle(color: Colors.white54)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Yes, Cancel',
-                style: TextStyle(color: AppColors.coral)),
+            child: const Text(
+              'Yes, Cancel',
+              style: TextStyle(color: AppColors.coral),
+            ),
           ),
         ],
       ),
@@ -204,8 +207,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const SizedBox(width: 8),
           Text(label, style: AppTextStyles.caption),
           const Spacer(),
-          Text(_formatDateTime(dateStr),
-              style: AppTextStyles.caption.copyWith(color: Colors.white70)),
+          Text(
+            _formatDateTime(dateStr),
+            style: AppTextStyles.caption.copyWith(color: Colors.white70),
+          ),
         ],
       ),
     );
@@ -218,13 +223,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Status Timeline',
-              style: AppTextStyles.subheading.copyWith(fontSize: 15)),
+          Text(
+            'Status Timeline',
+            style: AppTextStyles.subheading.copyWith(fontSize: 15),
+          ),
           const SizedBox(height: 12),
           _buildTimestampRow('Created', _order!['created_at']),
           _buildTimestampRow('Accepted', _order!['accepted_at']),
           _buildTimestampRow('Preparing', _order!['preparing_at']),
-          _buildTimestampRow('Ready for Pickup', _order!['ready_for_pickup_at']),
+          _buildTimestampRow(
+            'Ready for Pickup',
+            _order!['ready_for_pickup_at'],
+          ),
           _buildTimestampRow('Picked Up', _order!['picked_up_at']),
           _buildTimestampRow('Delivered', _order!['delivered_at']),
           _buildTimestampRow('Cancelled', _order!['cancelled_at']),
@@ -255,13 +265,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline,
-                    size: 56, color: AppColors.coral),
+                const Icon(
+                  Icons.error_outline,
+                  size: 56,
+                  color: AppColors.coral,
+                ),
                 const SizedBox(height: 16),
                 Text('Failed to load order', style: AppTextStyles.subheading),
                 const SizedBox(height: 8),
-                Text(_error ?? 'Order not found',
-                    style: AppTextStyles.caption, textAlign: TextAlign.center),
+                Text(
+                  _error ?? 'Order not found',
+                  style: AppTextStyles.caption,
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 24),
                 SugoBayButton(text: 'Retry', onPressed: _loadOrder),
               ],
@@ -272,13 +288,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
 
     final orderId = _order!['id'] ?? '';
-    final shortId =
-        orderId.length > 6 ? orderId.substring(orderId.length - 6) : orderId;
+    final shortId = orderId.length > 6
+        ? orderId.substring(orderId.length - 6)
+        : orderId;
     final status = _order!['status'] ?? '';
     final total = (_order!['total'] ?? 0).toDouble();
     final deliveryAddress = _order!['delivery_address'] ?? 'No address';
     final notes = _order!['notes'] as String?;
-    final customerName = _customer?['full_name'] ?? 'Customer';
+    final customerName = _customer?['name'] ?? 'Customer';
     final customerPhone = _customer?['phone'] ?? '';
 
     return Scaffold(
@@ -303,24 +320,33 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Customer',
-                      style: AppTextStyles.subheading.copyWith(fontSize: 15)),
+                  Text(
+                    'Customer',
+                    style: AppTextStyles.subheading.copyWith(fontSize: 15),
+                  ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Icon(Icons.person_outline,
-                          size: 18, color: AppColors.teal),
+                      const Icon(
+                        Icons.person_outline,
+                        size: 18,
+                        color: AppColors.teal,
+                      ),
                       const SizedBox(width: 8),
-                      Text(customerName,
-                          style: AppTextStyles.body
-                              .copyWith(color: Colors.white)),
+                      Text(
+                        customerName,
+                        style: AppTextStyles.body.copyWith(color: Colors.white),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.phone_outlined,
-                          size: 18, color: AppColors.teal),
+                      const Icon(
+                        Icons.phone_outlined,
+                        size: 18,
+                        color: AppColors.teal,
+                      ),
                       const SizedBox(width: 8),
                       Text(customerPhone, style: AppTextStyles.body),
                     ],
@@ -329,12 +355,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.location_on_outlined,
-                          size: 18, color: AppColors.teal),
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 18,
+                        color: AppColors.teal,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child:
-                            Text(deliveryAddress, style: AppTextStyles.body),
+                        child: Text(deliveryAddress, style: AppTextStyles.body),
                       ),
                     ],
                   ),
@@ -343,13 +371,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.notes,
-                            size: 18, color: AppColors.gold),
+                        const Icon(
+                          Icons.notes,
+                          size: 18,
+                          color: AppColors.gold,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(notes,
-                              style: AppTextStyles.body
-                                  .copyWith(color: AppColors.gold)),
+                          child: Text(
+                            notes,
+                            style: AppTextStyles.body.copyWith(
+                              color: AppColors.gold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -364,15 +398,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Items',
-                      style: AppTextStyles.subheading.copyWith(fontSize: 15)),
+                  Text(
+                    'Items',
+                    style: AppTextStyles.subheading.copyWith(fontSize: 15),
+                  ),
                   const SizedBox(height: 10),
                   ..._items.map((item) {
-                    final itemName =
-                        item['menu_items']?['name'] ?? 'Item';
+                    final itemName = item['menu_items']?['name'] ?? 'Item';
                     final qty = item['quantity'] ?? 1;
-                    final price = (item['price'] ?? item['menu_items']?['price'] ?? 0)
-                        .toDouble();
+                    final price =
+                        (item['price'] ?? item['menu_items']?['price'] ?? 0)
+                            .toDouble();
                     final subtotal = price * qty;
 
                     return Padding(
@@ -390,20 +426,25 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             child: Text(
                               '${qty}x',
                               style: AppTextStyles.caption.copyWith(
-                                  color: AppColors.teal,
-                                  fontWeight: FontWeight.bold),
+                                color: AppColors.teal,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text(itemName,
-                                style: AppTextStyles.body
-                                    .copyWith(color: Colors.white)),
+                            child: Text(
+                              itemName,
+                              style: AppTextStyles.body.copyWith(
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                           Text(
                             '\u20B1${subtotal.toStringAsFixed(2)}',
-                            style: AppTextStyles.body
-                                .copyWith(color: AppColors.gold),
+                            style: AppTextStyles.body.copyWith(
+                              color: AppColors.gold,
+                            ),
                           ),
                         ],
                       ),
@@ -413,8 +454,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Total',
-                          style: AppTextStyles.subheading.copyWith(fontSize: 16)),
+                      Text(
+                        'Total',
+                        style: AppTextStyles.subheading.copyWith(fontSize: 16),
+                      ),
                       Text(
                         '\u20B1${total.toStringAsFixed(2)}',
                         style: AppTextStyles.subheading.copyWith(

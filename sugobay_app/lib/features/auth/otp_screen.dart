@@ -9,9 +9,9 @@ import '../../core/supabase_client.dart';
 import '../../shared/widgets.dart';
 
 class OtpScreen extends StatefulWidget {
-  final String phone;
+  final String identifier;
 
-  const OtpScreen({super.key, required this.phone});
+  const OtpScreen({super.key, required this.identifier});
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -25,6 +25,8 @@ class _OtpScreenState extends State<OtpScreen> {
   bool _isLoading = false;
   int _resendSeconds = 60;
   Timer? _resendTimer;
+
+  bool get _isEmail => widget.identifier.contains('@');
 
   @override
   void initState() {
@@ -76,9 +78,10 @@ class _OtpScreenState extends State<OtpScreen> {
 
     try {
       final response = await SupabaseService.auth.verifyOTP(
-        phone: widget.phone,
+        email: _isEmail ? widget.identifier : null,
+        phone: _isEmail ? null : widget.identifier,
         token: otp,
-        type: OtpType.sms,
+        type: _isEmail ? OtpType.email : OtpType.sms,
       );
 
       if (!mounted) return;
@@ -90,20 +93,16 @@ class _OtpScreenState extends State<OtpScreen> {
       }
 
       // Check if user exists in users table
-      final existing = await SupabaseService.users()
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
+      final role = await SupabaseService.getUserRole();
 
       if (!mounted) return;
 
-      if (existing != null) {
+      if (role != null) {
         // Existing user: route by role
-        final role = existing['role'] as String?;
         _routeByRole(role);
       } else {
         // New user: go to registration
-        context.go('/register', extra: widget.phone);
+        context.go('/register', extra: widget.identifier);
       }
     } catch (e) {
       if (!mounted) return;
@@ -150,15 +149,19 @@ class _OtpScreenState extends State<OtpScreen> {
     if (_resendSeconds > 0) return;
 
     try {
-      await SupabaseService.auth.signInWithOtp(phone: widget.phone);
+      if (_isEmail) {
+        await SupabaseService.auth.signInWithOtp(email: widget.identifier);
+      } else {
+        await SupabaseService.auth.signInWithOtp(phone: widget.identifier);
+      }
       if (!mounted) return;
-      showSugoBaySnackBar(context, 'OTP resent to ${widget.phone}');
+      showSugoBaySnackBar(context, 'Code resent to ${widget.identifier}');
       _startResendTimer();
     } catch (e) {
       if (!mounted) return;
       showSugoBaySnackBar(
         context,
-        'Failed to resend OTP: ${e.toString()}',
+        'Failed to resend code: ${e.toString()}',
         isError: true,
       );
     }
@@ -182,14 +185,14 @@ class _OtpScreenState extends State<OtpScreen> {
           child: Column(
             children: [
               const SizedBox(height: 20),
-              const Icon(
-                Icons.message_rounded,
+              Icon(
+                _isEmail ? Icons.email_rounded : Icons.message_rounded,
                 size: 64,
                 color: AppColors.teal,
               ),
               const SizedBox(height: 24),
               Text(
-                'Verify your number',
+                _isEmail ? 'Verify your email' : 'Verify your number',
                 style: AppTextStyles.heading,
               ),
               const SizedBox(height: 10),
@@ -199,12 +202,13 @@ class _OtpScreenState extends State<OtpScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                widget.phone,
+                widget.identifier,
                 style: AppTextStyles.subheading.copyWith(
                   color: AppColors.gold,
                 ),
               ),
               const SizedBox(height: 36),
+
 
               // OTP input fields
               Row(

@@ -384,3 +384,29 @@ alter publication supabase_realtime add table announcements;
 -- 2. menu-images (public)
 -- 3. pahapit-photos (public)
 -- 4. avatars (public)
+
+-- =====================================================
+-- AUTH TRIGGERS
+-- =====================================================
+
+-- Function to handle new user creation in the public.users table
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.users (id, name, phone, role, email)
+  values (
+    new.id,
+    new.raw_user_meta_data->>'name',
+    new.raw_user_meta_data->>'phone',
+    coalesce(new.raw_user_meta_data->>'role', 'customer'),
+    new.email
+  );
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Trigger to run the function after a user is created in auth.users
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();

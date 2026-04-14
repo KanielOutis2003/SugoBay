@@ -178,7 +178,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       );
     }
 
-    final name = _userProfile!['full_name'] ?? 'Customer';
+    final name = _userProfile!['name'] ?? 'Customer';
     final phone = _userProfile!['phone'] ?? '';
 
     return SingleChildScrollView(

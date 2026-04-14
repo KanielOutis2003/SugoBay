@@ -425,7 +425,7 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
   }
 
   Widget _buildRiderCard() {
-    final riderName = _rider?['full_name'] ?? 'Rider';
+    final riderName = _rider?['name'] ?? 'Rider';
     final riderPhone = _rider?['phone'] ?? '';
 
     return SugoBayCard(

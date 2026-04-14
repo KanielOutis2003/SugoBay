@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants.dart';
 import '../../core/supabase_client.dart';
 import '../../shared/widgets.dart';
 
 class RegisterScreen extends StatefulWidget {
-  final String phone;
+  final String? identifier;
 
-  const RegisterScreen({super.key, required this.phone});
+  const RegisterScreen({super.key, this.identifier});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -16,7 +15,11 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _shopNameController = TextEditingController();
   final _addressController = TextEditingController();
 
@@ -35,8 +38,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.identifier != null) {
+      if (widget.identifier!.contains('@')) {
+        _emailController.text = widget.identifier!;
+      } else if (RegExp(r'^\+?\d+$').hasMatch(widget.identifier!)) {
+        _phoneController.text = widget.identifier!;
+      }
+    }
+  }
+
+  @override
   void dispose() {
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _phoneController.dispose();
     _shopNameController.dispose();
     _addressController.dispose();
     super.dispose();
@@ -48,37 +67,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final userId = SupabaseService.currentUserId;
-      if (userId == null) {
-        showSugoBaySnackBar(context, 'Session expired. Please login again.',
-            isError: true);
-        context.go('/login');
-        return;
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+      final firstName = _firstNameController.text.trim();
+      final lastName = _lastNameController.text.trim();
+      final phone = _phoneController.text.trim();
+
+      final metadata = {
+        'name': '$firstName $lastName',
+        'phone': phone,
+        'role': _selectedRole,
+      };
+
+      if (_selectedRole == 'merchant') {
+        metadata['shop_name'] = _shopNameController.text.trim();
+        metadata['address'] = _addressController.text.trim();
+        metadata['category'] = _selectedCategory;
       }
 
-      // Insert user record
-      await SupabaseService.users().insert({
-        'id': userId,
-        'name': _nameController.text.trim(),
-        'phone': widget.phone,
-        'role': _selectedRole,
-      });
+      // Step 1: Sign up in Supabase Auth with metadata
+      final signUpResponse = await SupabaseService.auth.signUp(
+        email: email,
+        password: password,
+        data: metadata,
+      );
 
-      // If merchant, insert merchant record
+      if (!mounted) return;
+
       if (_selectedRole == 'merchant') {
-        await SupabaseService.merchants().insert({
-          'user_id': userId,
-          'shop_name': _shopNameController.text.trim(),
-          'address': _addressController.text.trim(),
-          'category': _selectedCategory,
-          'lat': 0.0,
-          'lng': 0.0,
-          'is_approved': false,
-        });
+        final userId = signUpResponse.user?.id;
+        if (userId != null) {
+          // Explicitly create user profile for merchant if not handled by trigger yet
+          // to ensure merchants table insert doesn't fail due to FK
+          try {
+            await SupabaseService.users().upsert({
+              'id': userId,
+              'name': metadata['name'],
+              'phone': metadata['phone'],
+              'role': 'merchant',
+              'email': email,
+            });
 
-        if (!mounted) return;
+            await SupabaseService.merchants().insert({
+              'user_id': userId,
+              'shop_name': _shopNameController.text.trim(),
+              'address': _addressController.text.trim(),
+              'category': _selectedCategory,
+              'lat': 0.0,
+              'lng': 0.0,
+              'is_approved': false,
+            });
+          } catch (e) {
+            debugPrint('Merchant setup error: $e');
+          }
+        }
 
-        // Show waiting for approval dialog
+        // Show the "Pending Approval" dialog immediately
         await showDialog(
           context: context,
           barrierDismissible: false,
@@ -87,43 +131,85 @@ class _RegisterScreenState extends State<RegisterScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            title: const Icon(
-              Icons.hourglass_top_rounded,
-              color: AppColors.gold,
-              size: 48,
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
+            title: const Column(
               children: [
-                Text(
-                  'Waiting for Admin Approval',
-                  style: AppTextStyles.subheading,
-                  textAlign: TextAlign.center,
+                Icon(
+                  Icons.hourglass_top_rounded,
+                  color: AppColors.gold,
+                  size: 48,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 16),
                 Text(
-                  'Your merchant account has been submitted and is pending approval. '
-                  'You will be notified once an admin reviews your application.',
-                  style: AppTextStyles.body,
+                  'Application Submitted',
+                  style: AppTextStyles.subheading,
                   textAlign: TextAlign.center,
                 ),
               ],
             ),
+            content: const Text(
+              'Your merchant application has been submitted to the admin for review. You will be notified once your shop is approved.',
+              style: AppTextStyles.body,
+              textAlign: TextAlign.center,
+            ),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: Text(
-                  'OK',
-                  style: AppTextStyles.button.copyWith(color: AppColors.teal),
+              SizedBox(
+                width: double.infinity,
+                child: SugoBayButton(
+                  text: 'OK',
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    context.go('/login');
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // Step 2: Show confirmation popup for Customers/Riders
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColors.cardBg,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Column(
+              children: [
+                Icon(
+                  Icons.mark_email_read_outlined,
+                  color: AppColors.teal,
+                  size: 48,
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Confirm your Account',
+                  style: AppTextStyles.subheading,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            content: Text(
+              'We have sent a confirmation link to $email. Please check your Gmail to verify your account before logging in.',
+              style: AppTextStyles.body,
+              textAlign: TextAlign.center,
+            ),
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                child: SugoBayButton(
+                  text: 'Got it!',
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    context.go('/login');
+                  },
                 ),
               ),
             ],
           ),
         );
       }
-
-      if (!mounted) return;
-      _routeByRole(_selectedRole);
     } catch (e) {
       if (!mounted) return;
       showSugoBaySnackBar(
@@ -134,35 +220,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  void _routeByRole(String role) {
-    switch (role) {
-      case 'customer':
-        context.go('/customer');
-        break;
-      case 'merchant':
-        context.go('/merchant-home');
-        break;
-      case 'rider':
-        context.go('/rider-home');
-        break;
-      case 'admin':
-        _launchAdminPanel();
-        break;
-      default:
-        context.go('/login');
-    }
-  }
-
-  Future<void> _launchAdminPanel() async {
-    final uri = Uri.parse(AppConstants.adminPanelUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-    await SupabaseService.auth.signOut();
-    if (!mounted) return;
-    context.go('/login');
   }
 
   @override
@@ -187,15 +244,85 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Name field
+                // Name fields
+                Row(
+                  children: [
+                    Expanded(
+                      child: SugoBayTextField(
+                        label: 'First Name',
+                        hint: 'Juan',
+                        controller: _firstNameController,
+                        keyboardType: TextInputType.name,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Required';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: SugoBayTextField(
+                        label: 'Last Name',
+                        hint: 'Dela Cruz',
+                        controller: _lastNameController,
+                        keyboardType: TextInputType.name,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Required';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Email field
                 SugoBayTextField(
-                  label: 'Full Name',
-                  hint: 'Enter your name',
-                  controller: _nameController,
-                  keyboardType: TextInputType.name,
+                  label: 'Email Address',
+                  hint: 'juan@example.com',
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Name is required';
+                      return 'Email is required';
+                    }
+                    if (!value.contains('@')) return 'Invalid email';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // Password field
+                SugoBayTextField(
+                  label: 'Password',
+                  hint: '••••••••',
+                  controller: _passwordController,
+                  obscureText: true,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Password is required';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // Phone field
+                SugoBayTextField(
+                  label: 'Phone Number',
+                  hint: '09XX XXX XXXX',
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Phone is required';
                     }
                     return null;
                   },
@@ -264,8 +391,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   // Category dropdown
                   Text(
                     'Category',
-                    style:
-                        AppTextStyles.body.copyWith(color: AppColors.gold),
+                    style: AppTextStyles.body.copyWith(color: AppColors.gold),
                   ),
                   const SizedBox(height: 6),
                   Container(
@@ -282,8 +408,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         dropdownColor: AppColors.cardBg,
                         isExpanded: true,
                         style: const TextStyle(color: AppColors.white),
-                        icon: const Icon(Icons.arrow_drop_down,
-                            color: AppColors.gold),
+                        icon: const Icon(
+                          Icons.arrow_drop_down,
+                          color: AppColors.gold,
+                        ),
                         items: _merchantCategories.map((cat) {
                           return DropdownMenuItem(
                             value: cat,
@@ -334,9 +462,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 20),
           decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.teal.withAlpha(30)
-                : AppColors.cardBg,
+            color: isSelected ? AppColors.teal.withAlpha(30) : AppColors.cardBg,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isSelected ? AppColors.teal : AppColors.darkGrey,
@@ -355,8 +481,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 label,
                 style: AppTextStyles.caption.copyWith(
                   color: isSelected ? AppColors.teal : AppColors.white,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ],
