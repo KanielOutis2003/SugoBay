@@ -5,9 +5,9 @@
 
 -- USERS (all roles)
 create table if not exists users (
-  id uuid references auth.users primary key,
-  name text not null,
-  phone text unique not null,
+  id uuid references auth.users(id) on delete cascade primary key,
+  name text,
+  phone text unique,
   email text,
   role text check (role in (
     'customer','rider','merchant','admin'
@@ -414,8 +414,8 @@ begin
   insert into public.users (id, name, phone, role, email)
   values (
     new.id,
-    new.raw_user_meta_data->>'name',
-    new.raw_user_meta_data->>'phone',
+    coalesce(new.raw_user_meta_data->>'name', 'New User'),
+    coalesce(new.raw_user_meta_data->>'phone', new.id::text), -- Use ID as fallback phone
     coalesce(new.raw_user_meta_data->>'role', 'customer'),
     new.email
   );

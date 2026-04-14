@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import Layout from './components/Layout'
-import Login from './pages/Login'
+import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
 import FoodOrders from './pages/FoodOrders'
 import PahapitJobs from './pages/PahapitJobs'
@@ -42,10 +42,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
+        <Route path="/" element={<Landing />} />
         
-        <Route element={session ? <Layout /> : <Navigate to="/login" />}>
-          <Route path="/" element={<Dashboard />} />
+        <Route element={session ? <Layout /> : <Navigate to="/" />}>
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/food-orders" element={<FoodOrders />} />
           <Route path="/pahapit-jobs" element={<PahapitJobs />} />
           <Route path="/merchants" element={<Merchants />} />

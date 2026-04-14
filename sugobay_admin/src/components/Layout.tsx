@@ -6,7 +6,7 @@ import {
 import { supabase } from '../lib/supabase'
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/food-orders', label: 'Food Orders', icon: ShoppingBag },
   { path: '/pahapit-jobs', label: 'Pahapit Jobs', icon: Truck },
   { path: '/merchants', label: 'Merchants', icon: Store },
@@ -23,7 +23,7 @@ export default function Layout() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    navigate('/login')
+    navigate('/')
   }
 
   return (
@@ -41,7 +41,7 @@ export default function Layout() {
             <NavLink
               key={path}
               to={path}
-              end={path === '/'}
+              end={path === '/dashboard'}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-6 py-3 text-sm transition-colors ${
                   isActive
