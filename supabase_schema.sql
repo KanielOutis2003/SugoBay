@@ -410,15 +410,32 @@ alter publication supabase_realtime add table announcements;
 -- Function to handle new user creation in the public.users table
 create or replace function public.handle_new_user()
 returns trigger as $$
+declare
+  user_role text;
 begin
+  user_role := coalesce(new.raw_user_meta_data->>'role', 'customer');
+
   insert into public.users (id, name, phone, role, email)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'name', 'New User'),
-    coalesce(new.raw_user_meta_data->>'phone', new.id::text), -- Use ID as fallback phone
-    coalesce(new.raw_user_meta_data->>'role', 'customer'),
+    coalesce(new.raw_user_meta_data->>'phone', new.id::text),
+    user_role,
     new.email
   );
+
+  -- If merchant, also create entry in merchants table
+  if user_role = 'merchant' then
+    insert into public.merchants (user_id, shop_name, address, category, lat, lng, is_approved)
+    values (
+      new.id,
+      coalesce(new.raw_user_meta_data->>'shop_name', 'My Shop'),
+      coalesce(new.raw_user_meta_data->>'address', 'Ubay, Bohol'),
+      coalesce(new.raw_user_meta_data->>'category', 'restaurant'),
+      0, 0, false
+    );
+  end if;
+
   return new;
 end;
 $$ language plpgsql security definer;

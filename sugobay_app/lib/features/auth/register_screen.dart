@@ -95,34 +95,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       if (_selectedRole == 'merchant') {
-        final userId = signUpResponse.user?.id;
-        if (userId != null) {
-          // Explicitly create user profile for merchant if not handled by trigger yet
-          // to ensure merchants table insert doesn't fail due to FK
-          try {
-            await SupabaseService.users().upsert({
-              'id': userId,
-              'name': metadata['name'],
-              'phone': metadata['phone'],
-              'role': 'merchant',
-              'email': email,
-            });
-
-            await SupabaseService.merchants().insert({
-              'user_id': userId,
-              'shop_name': _shopNameController.text.trim(),
-              'address': _addressController.text.trim(),
-              'category': _selectedCategory,
-              'lat': 0.0,
-              'lng': 0.0,
-              'is_approved': false,
-            });
-          } catch (e) {
-            debugPrint('Merchant setup error: $e');
-          }
-        }
-
         // Show the "Pending Approval" dialog immediately
+        if (!mounted) return;
         await showDialog(
           context: context,
           barrierDismissible: false,

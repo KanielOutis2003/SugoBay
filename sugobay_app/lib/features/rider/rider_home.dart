@@ -98,7 +98,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
 
     // Available food orders (pending or ready_for_pickup, no rider assigned)
     final availableFood = await SupabaseService.orders()
-        .select('*, merchants(business_name)')
+        .select('*, merchants(shop_name)')
         .or('status.eq.pending,status.eq.ready_for_pickup')
         .isFilter('rider_id', null)
         .order('created_at', ascending: false);
@@ -271,7 +271,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
           'lng': position.longitude,
           'is_online': true,
           'updated_at': DateTime.now().toIso8601String(),
-        });
+        }, onConflict: 'rider_id');
 
         _startGpsTracking();
       } else {
@@ -482,8 +482,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   }
 
   Widget _buildFoodJobCard(Map<String, dynamic> order, {bool mine = false}) {
-    final merchantName =
-        order['merchants']?['business_name'] ?? 'Unknown Merchant';
+    final merchantName = order['merchants']?['shop_name'] ?? 'Unknown Merchant';
     final status = order['status'] ?? 'pending';
     final total = (order['total_amount'] ?? 0).toDouble();
     final deliveryFee = (order['delivery_fee'] ?? 0).toDouble();
