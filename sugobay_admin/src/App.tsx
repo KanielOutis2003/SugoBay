@@ -1,8 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabase'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
-import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
 import FoodOrders from './pages/FoodOrders'
 import PahapitJobs from './pages/PahapitJobs'
@@ -15,37 +12,11 @@ import Announcements from './pages/Announcements'
 import Settings from './pages/Settings'
 
 export default function App() {
-  const [session, setSession] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#1A1C20] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-[#2A9D8F]"></div>
-      </div>
-    )
-  }
-
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Landing />} />
-        
-        <Route element={session ? <Layout /> : <Navigate to="/" />}>
-          <Route path="/dashboard" element={<Dashboard />} />
+        <Route element={<Layout />}>
+          <Route path="/" element={<Dashboard />} />
           <Route path="/food-orders" element={<FoodOrders />} />
           <Route path="/pahapit-jobs" element={<PahapitJobs />} />
           <Route path="/merchants" element={<Merchants />} />

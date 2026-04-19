@@ -70,44 +70,6 @@ class SupabaseService {
         .select('role')
         .eq('id', currentUserId!)
         .maybeSingle();
-    
-    if (response == null) {
-      // Profile doesn't exist yet, let's create it from auth metadata
-      final userMetadata = currentUser?.userMetadata;
-      if (userMetadata != null) {
-        final role = userMetadata['role'] as String? ?? 'customer';
-        final name = userMetadata['name'] as String?;
-        final phone = userMetadata['phone'] as String?;
-        
-        await users().insert({
-          'id': currentUserId!,
-          'name': name,
-          'phone': phone,
-          'role': role,
-        });
-
-        // If merchant, check for merchant metadata
-        if (role == 'merchant') {
-          final shopName = userMetadata['shop_name'] as String?;
-          final address = userMetadata['address'] as String?;
-          final category = userMetadata['category'] as String?;
-          
-          if (shopName != null) {
-            await merchants().insert({
-              'user_id': currentUserId!,
-              'shop_name': shopName,
-              'address': address,
-              'category': category ?? 'restaurant',
-              'lat': 0.0,
-              'lng': 0.0,
-              'is_approved': false,
-            });
-          }
-        }
-        return role;
-      }
-    }
-    
     return response?['role'] as String?;
   }
 

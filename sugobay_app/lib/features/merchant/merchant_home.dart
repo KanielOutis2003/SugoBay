@@ -95,14 +95,14 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
     try {
       // Active orders
       final activeRes = await SupabaseService.orders()
-          .select('*, users!orders_customer_id_fkey(name, phone)')
+          .select('*, users!orders_customer_id_fkey(full_name, phone)')
           .eq('merchant_id', _merchantId)
           .not('status', 'in', '("delivered","cancelled")')
           .order('created_at', ascending: false);
 
       // History orders
       final historyRes = await SupabaseService.orders()
-          .select('*, users!orders_customer_id_fkey(name, phone)')
+          .select('*, users!orders_customer_id_fkey(full_name, phone)')
           .eq('merchant_id', _merchantId)
           .inFilter('status', ['delivered', 'cancelled'])
           .order('created_at', ascending: false)
@@ -118,10 +118,8 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
       }
 
       // Today's stats
-      final todayStart = DateTime.now().toUtc().toIso8601String().substring(
-        0,
-        10,
-      );
+      final todayStart =
+          DateTime.now().toUtc().toIso8601String().substring(0, 10);
       final todayOrders = await SupabaseService.orders()
           .select('total')
           .eq('merchant_id', _merchantId)
@@ -141,11 +139,8 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
       }
     } catch (e) {
       if (mounted) {
-        showSugoBaySnackBar(
-          context,
-          'Failed to load orders: $e',
-          isError: true,
-        );
+        showSugoBaySnackBar(context, 'Failed to load orders: $e',
+            isError: true);
       }
     }
   }
@@ -173,8 +168,7 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
   Future<void> _toggleIsOpen(bool value) async {
     try {
       await SupabaseService.merchants()
-          .update({'is_open': value})
-          .eq('id', _merchantId);
+          .update({'is_open': value}).eq('id', _merchantId);
       setState(() {
         _merchant!['is_open'] = value;
       });
@@ -217,11 +211,10 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
 
   Widget _buildOrderCard(Map<String, dynamic> order) {
     final orderId = order['id'] ?? '';
-    final shortId = orderId.length > 6
-        ? orderId.substring(orderId.length - 6)
-        : orderId;
+    final shortId =
+        orderId.length > 6 ? orderId.substring(orderId.length - 6) : orderId;
     final customer = order['users'];
-    final customerName = customer?['name'] ?? 'Customer';
+    final customerName = customer?['full_name'] ?? 'Customer';
     final total = (order['total'] ?? 0).toDouble();
     final status = order['status'] ?? 'pending';
     final createdAt = order['created_at'];
@@ -487,17 +480,11 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
                 CircleAvatar(
                   radius: 40,
                   backgroundColor: AppColors.teal.withAlpha(40),
-                  child: const Icon(
-                    Icons.store,
-                    size: 40,
-                    color: AppColors.teal,
-                  ),
+                  child:
+                      const Icon(Icons.store, size: 40, color: AppColors.teal),
                 ),
                 const SizedBox(height: 14),
-                Text(
-                  shopName,
-                  style: AppTextStyles.heading.copyWith(fontSize: 20),
-                ),
+                Text(shopName, style: AppTextStyles.heading.copyWith(fontSize: 20)),
                 const SizedBox(height: 4),
                 Text(address, style: AppTextStyles.caption),
               ],
@@ -545,10 +532,7 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
             children: [
               Text(label, style: AppTextStyles.caption),
               const SizedBox(height: 2),
-              Text(
-                value,
-                style: AppTextStyles.body.copyWith(color: Colors.white),
-              ),
+              Text(value, style: AppTextStyles.body.copyWith(color: Colors.white)),
             ],
           ),
         ),
@@ -561,7 +545,9 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: AppColors.primaryBg,
-        body: Center(child: CircularProgressIndicator(color: AppColors.teal)),
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.teal),
+        ),
       );
     }
 
@@ -574,19 +560,11 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 56,
-                  color: AppColors.coral,
-                ),
+                const Icon(Icons.error_outline, size: 56, color: AppColors.coral),
                 const SizedBox(height: 16),
                 Text('Something went wrong', style: AppTextStyles.subheading),
                 const SizedBox(height: 8),
-                Text(
-                  _error!,
-                  style: AppTextStyles.caption,
-                  textAlign: TextAlign.center,
-                ),
+                Text(_error!, style: AppTextStyles.caption, textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 SugoBayButton(text: 'Retry', onPressed: _loadMerchant),
               ],
@@ -619,7 +597,7 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
                     Switch(
                       value: isOpen,
                       onChanged: _toggleIsOpen,
-                      activeColor: AppColors.success,
+                      activeThumbColor: AppColors.success,
                       inactiveThumbColor: AppColors.coral,
                     ),
                   ],
@@ -646,18 +624,11 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.restaurant_menu,
-                  size: 64,
-                  color: AppColors.teal,
-                ),
+                const Icon(Icons.restaurant_menu, size: 64, color: AppColors.teal),
                 const SizedBox(height: 16),
                 Text('Manage Your Menu', style: AppTextStyles.subheading),
                 const SizedBox(height: 8),
-                Text(
-                  'Add, edit, or remove menu items',
-                  style: AppTextStyles.caption,
-                ),
+                Text('Add, edit, or remove menu items', style: AppTextStyles.caption),
                 const SizedBox(height: 24),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 48),

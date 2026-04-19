@@ -214,7 +214,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                 Switch(
                   value: isAvailable,
                   onChanged: (_) => _toggleAvailability(item),
-                  activeColor: AppColors.success,
+                  activeThumbColor: AppColors.success,
                   inactiveThumbColor: AppColors.coral,
                 ),
                 Text(

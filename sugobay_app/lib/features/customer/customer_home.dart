@@ -5,6 +5,7 @@ import '../../core/supabase_client.dart';
 import '../../shared/widgets.dart';
 import 'food/food_tab.dart';
 import 'pahapit/pahapit_tab.dart';
+import 'habal_habal_tab.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -15,34 +16,8 @@ class CustomerHomeScreen extends StatefulWidget {
 
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   int _currentIndex = 0;
-  Map<String, dynamic>? _userProfile;
-  bool _profileLoading = true;
   final GlobalKey<FoodTabViewState> _foodTabKey = GlobalKey();
   final GlobalKey<PahapitTabViewState> _pahapitTabKey = GlobalKey();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProfile();
-  }
-
-  Future<void> _loadProfile() async {
-    setState(() => _profileLoading = true);
-    try {
-      final profile = await SupabaseService.getUserProfile();
-      if (mounted) {
-        setState(() {
-          _userProfile = profile;
-          _profileLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _profileLoading = false);
-        showSugoBaySnackBar(context, 'Failed to load profile', isError: true);
-      }
-    }
-  }
 
   void _handleRefresh() {
     switch (_currentIndex) {
@@ -51,9 +26,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         break;
       case 1:
         _pahapitTabKey.currentState?.refresh();
-        break;
-      case 2:
-        _loadProfile();
         break;
     }
     showSugoBaySnackBar(context, 'Refreshed');
@@ -107,12 +79,57 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             tooltip: 'Refresh',
             onPressed: _handleRefresh,
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined,
-                color: AppColors.white),
-            onPressed: () {
-              showSugoBaySnackBar(context, 'Notifications coming soon');
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.person_outline, color: AppColors.white),
+            color: AppColors.cardBg,
+            onSelected: (value) {
+              switch (value) {
+                case 'history':
+                  context.push('/order-history');
+                  break;
+                case 'settings':
+                  context.push('/settings');
+                  break;
+                case 'logout':
+                  _handleLogout();
+                  break;
+              }
             },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'history',
+                child: Row(
+                  children: [
+                    Icon(Icons.receipt_long, color: AppColors.teal, size: 20),
+                    SizedBox(width: 10),
+                    Text('Order History',
+                        style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, color: AppColors.gold, size: 20),
+                    SizedBox(width: 10),
+                    Text('Settings',
+                        style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: AppColors.coral, size: 20),
+                    SizedBox(width: 10),
+                    Text('Logout',
+                        style: TextStyle(color: AppColors.coral)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -121,7 +138,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         children: [
           FoodTabView(key: _foodTabKey),
           PahapitTabView(key: _pahapitTabKey),
-          _buildProfileTab(),
+          const HabalHabalTab(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -140,101 +157,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             label: 'Pahapit',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileTab() {
-    if (_profileLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.teal),
-      );
-    }
-
-    if (_userProfile == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const EmptyState(
-              icon: Icons.person_off,
-              title: 'Profile not found',
-              subtitle: 'Unable to load your profile',
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: SugoBayButton(
-                text: 'Retry',
-                onPressed: _loadProfile,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final name = _userProfile!['name'] ?? 'Customer';
-    final phone = _userProfile!['phone'] ?? '';
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          const SizedBox(height: 20),
-          CircleAvatar(
-            radius: 48,
-            backgroundColor: AppColors.teal,
-            child: Text(
-              name.toString().isNotEmpty ? name[0].toUpperCase() : 'C',
-              style: AppTextStyles.heading.copyWith(fontSize: 36),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(name, style: AppTextStyles.heading),
-          const SizedBox(height: 4),
-          Text(phone, style: AppTextStyles.body),
-          const SizedBox(height: 32),
-          SugoBayCard(
-            onTap: () {
-              showSugoBaySnackBar(context, 'Order history coming soon');
-            },
-            child: Row(
-              children: [
-                const Icon(Icons.receipt_long, color: AppColors.teal),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text('Order History', style: AppTextStyles.subheading),
-                ),
-                const Icon(Icons.chevron_right, color: Colors.white54),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          SugoBayCard(
-            onTap: () {
-              showSugoBaySnackBar(context, 'Settings coming soon');
-            },
-            child: Row(
-              children: [
-                const Icon(Icons.settings, color: AppColors.gold),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text('Settings', style: AppTextStyles.subheading),
-                ),
-                const Icon(Icons.chevron_right, color: Colors.white54),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-          SugoBayButton(
-            text: 'Logout',
-            color: AppColors.coral,
-            onPressed: _handleLogout,
+            icon: Icon(Icons.motorcycle),
+            label: 'Habal-habal',
           ),
         ],
       ),

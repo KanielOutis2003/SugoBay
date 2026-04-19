@@ -3,7 +3,13 @@
 // Schedule as cron: runs every hour
 // Purpose: Auto 5-star rating after 24 hours if customer hasn't rated
 
+// @ts-ignore: Deno ESM import — works at runtime on Supabase Edge Functions
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+declare const Deno: {
+  env: { get(key: string): string | undefined }
+  serve(handler: (req: Request) => Response | Promise<Response>): void
+}
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!

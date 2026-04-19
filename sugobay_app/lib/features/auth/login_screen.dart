@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants.dart';
 import '../../core/supabase_client.dart';
 import '../../shared/widgets.dart';
@@ -14,12 +15,20 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  bool _isLoading = false;
+  String _loadingMethod = '';
+
+  // Email form
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFormKey = GlobalKey<FormState>();
+  bool _showEmailForm = false;
+  bool _isSignUp = false;
+
+  // Phone form
   final _phoneController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
-  bool _isEmailLogin = true; // Email is primary
+  final _phoneFormKey = GlobalKey<FormState>();
+  bool _showPhoneForm = false;
 
   @override
   void dispose() {
@@ -31,109 +40,183 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String get _fullPhone {
     final raw = _phoneController.text.trim();
-    // Remove leading 0 if user types 09xx format
     final cleaned = raw.startsWith('0') ? raw.substring(1) : raw;
     return '+63$cleaned';
   }
 
-  Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
+  Future<void> _handleAuthSuccess() async {
+    if (!mounted) return;
     try {
-      if (_isEmailLogin) {
-        final email = _emailController.text.trim();
-        final password = _passwordController.text;
+      final profile = await SupabaseService.getUserProfile();
+      if (!mounted) return;
 
-        await SupabaseService.auth.signInWithPassword(
-          email: email,
-          password: password,
-        );
+      if (profile == null || profile['role'] == null || profile['phone'] == null) {
+        context.go('/profile-setup');
+        return;
+      }
 
-        if (!mounted) return;
-        final role = await SupabaseService.getUserRole();
-        if (!mounted) return;
-        _routeByRole(role);
-      } else {
-        await SupabaseService.auth.signInWithOtp(phone: _fullPhone);
-        if (!mounted) return;
-        showSugoBaySnackBar(context, 'OTP sent to $_fullPhone');
-        context.push('/otp', extra: _fullPhone);
+      final role = profile['role'] as String;
+      final isApproved = profile['is_approved'] as bool? ?? true;
+
+      switch (role) {
+        case 'customer':
+          context.go('/customer');
+          break;
+        case 'rider':
+          context.go('/rider-home');
+          break;
+        case 'merchant':
+          if (isApproved) {
+            context.go('/merchant-home');
+          } else {
+            context.go('/merchant-home');
+          }
+          break;
+        case 'admin':
+          context.go('/');
+          break;
+        default:
+          context.go('/profile-setup');
       }
     } catch (e) {
       if (!mounted) return;
-      String message = e.toString();
-      if (message.contains('Invalid login credentials')) {
-        message = 'Invalid email or password. Please try again.';
-      } else if (message.contains('Email not confirmed')) {
-        message = 'Please confirm your email address before logging in.';
+      context.go('/profile-setup');
+    }
+  }
+
+  // ─── Google Sign In ───────────────────────────────────────────────
+
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+      _loadingMethod = 'google';
+    });
+
+    try {
+      final googleSignIn = GoogleSignIn(
+        serverClientId: AppConstants.googleWebClientId,
+      );
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
       }
-      showSugoBaySnackBar(context, 'Login failed: $message', isError: true);
+
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      final accessToken = googleAuth.accessToken;
+
+      if (idToken == null) {
+        throw Exception('Google sign in failed: no ID token');
+      }
+
+      await SupabaseService.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+
+      await _handleAuthSuccess();
+    } catch (e) {
+      if (!mounted) return;
+      showSugoBaySnackBar(context, 'Google sign in failed: $e', isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _routeByRole(String? role) async {
-    if (role == 'merchant') {
-      // Check if merchant is approved
-      final userId = SupabaseService.currentUserId;
-      final merchant = await SupabaseService.merchants()
-          .select('is_approved')
-          .eq('user_id', userId!)
-          .maybeSingle();
+  // ─── Facebook Sign In ─────────────────────────────────────────────
 
-      if (merchant == null || merchant['is_approved'] == false) {
-        context.go('/merchant-pending');
+  Future<void> _signInWithFacebook() async {
+    setState(() {
+      _isLoading = true;
+      _loadingMethod = 'facebook';
+    });
+
+    try {
+      final result = await FacebookAuth.instance.login();
+      if (result.status != LoginStatus.success) {
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
-    }
 
-    switch (role) {
-      case 'customer':
-        context.go('/customer');
-        break;
-      case 'merchant':
-        context.go('/merchant-home');
-        break;
-      case 'rider':
-        context.go('/rider-home');
-        break;
-      case 'admin':
-        _launchAdminPanel();
-        break;
-      default:
-        // If no role, they might need to register
-        context.go('/register');
-    }
-  }
+      final accessToken = result.accessToken?.token;
+      if (accessToken == null) {
+        throw Exception('Facebook login failed: no access token');
+      }
 
-  Future<void> _launchAdminPanel() async {
-    final uri = Uri.parse(AppConstants.adminPanelUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-    await SupabaseService.auth.signOut();
-    if (!mounted) return;
-    context.go('/login');
-  }
-
-  Future<void> _socialLogin(OAuthProvider provider) async {
-    setState(() => _isLoading = true);
-    try {
-      await SupabaseService.auth.signInWithOAuth(
-        provider,
-        redirectTo: 'io.supabase.sugobay://login-callback',
+      await SupabaseService.auth.signInWithIdToken(
+        provider: OAuthProvider.facebook,
+        idToken: accessToken,
       );
-      // OAuth redirect will happen, session will be handled on return
+
+      await _handleAuthSuccess();
     } catch (e) {
       if (!mounted) return;
-      showSugoBaySnackBar(
-        context,
-        'Failed to login with ${provider.name}: ${e.toString()}',
-        isError: true,
-      );
+      showSugoBaySnackBar(context, 'Facebook sign in failed: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ─── Email Sign In / Sign Up ──────────────────────────────────────
+
+  Future<void> _signInWithEmail() async {
+    if (!_emailFormKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _loadingMethod = 'email';
+    });
+
+    try {
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+
+      if (_isSignUp) {
+        await SupabaseService.auth.signUp(
+          email: email,
+          password: password,
+        );
+        if (!mounted) return;
+        showSugoBaySnackBar(context, 'Account created! Check email for verification.');
+      } else {
+        await SupabaseService.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
+      }
+
+      await _handleAuthSuccess();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      showSugoBaySnackBar(context, e.message, isError: true);
+    } catch (e) {
+      if (!mounted) return;
+      showSugoBaySnackBar(context, 'Error: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ─── Phone OTP ────────────────────────────────────────────────────
+
+  Future<void> _sendPhoneOtp() async {
+    if (!_phoneFormKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _loadingMethod = 'phone';
+    });
+
+    try {
+      await SupabaseService.auth.signInWithOtp(phone: _fullPhone);
+      if (!mounted) return;
+      showSugoBaySnackBar(context, 'OTP sent to $_fullPhone');
+      context.push('/otp', extra: _fullPhone);
+    } catch (e) {
+      if (!mounted) return;
+      showSugoBaySnackBar(context, 'Failed to send OTP: $e', isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -146,262 +229,261 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: 20),
-                // Logo
-                Image.asset('assets/images/logo.png', width: 100, height: 100),
-                const SizedBox(height: 16),
-                Text(
-                  AppConstants.appName,
-                  style: AppTextStyles.heading.copyWith(
-                    fontSize: 32,
-                    color: AppColors.teal,
-                    letterSpacing: 1.2,
-                  ),
+          child: Column(
+            children: [
+              const SizedBox(height: 30),
+              // Logo
+              Image.asset('assets/images/logo.png', width: 120, height: 120),
+              const SizedBox(height: 16),
+              Text(
+                AppConstants.appName,
+                style: AppTextStyles.heading.copyWith(
+                  fontSize: 28,
+                  color: AppColors.teal,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  AppConstants.tagline,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.gold,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 48),
+              ),
+              const SizedBox(height: 6),
+              Text(AppConstants.tagline, style: AppTextStyles.caption),
+              const SizedBox(height: 40),
 
-                // Dynamic Input Field
-                if (_isEmailLogin) ...[
-                  SugoBayTextField(
-                    label: 'Email Address',
-                    hint: 'your@email.com',
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    prefix: const Icon(
-                      Icons.email_outlined,
-                      color: AppColors.gold,
-                      size: 20,
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      if (!RegExp(
-                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                      ).hasMatch(value.trim())) {
-                        return 'Enter a valid email address';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  SugoBayTextField(
-                    label: 'Password',
-                    hint: '••••••••',
-                    controller: _passwordController,
-                    obscureText: true,
-                    prefix: const Icon(
-                      Icons.lock_outline,
-                      color: AppColors.gold,
-                      size: 20,
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      return null;
-                    },
-                  ),
-                ] else
-                  SugoBayTextField(
-                    label: 'Phone Number',
-                    hint: '9XX XXX XXXX',
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    prefix: Container(
-                      padding: const EdgeInsets.only(left: 14, right: 8),
-                      alignment: Alignment.center,
-                      width: 60,
-                      child: Text(
-                        '+63',
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.gold,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter your phone number';
-                      }
-                      final cleaned = value.trim().startsWith('0')
-                          ? value.trim().substring(1)
-                          : value.trim();
-                      if (cleaned.length != 10 ||
-                          !RegExp(r'^\d{10}$').hasMatch(cleaned)) {
-                        return 'Enter a valid 10-digit phone number';
-                      }
-                      return null;
-                    },
-                  ),
-                const SizedBox(height: 32),
+              // ─── Social Buttons ─────────────────────────────────
+              _buildSocialButton(
+                label: 'Continue with Google',
+                icon: Icons.g_mobiledata_rounded,
+                color: Colors.white,
+                textColor: Colors.black87,
+                isLoading: _isLoading && _loadingMethod == 'google',
+                onPressed: _isLoading ? null : _signInWithGoogle,
+              ),
+              const SizedBox(height: 12),
+              _buildSocialButton(
+                label: 'Continue with Facebook',
+                icon: Icons.facebook_rounded,
+                color: const Color(0xFF1877F2),
+                textColor: Colors.white,
+                isLoading: _isLoading && _loadingMethod == 'facebook',
+                onPressed: _isLoading ? null : _signInWithFacebook,
+              ),
+              const SizedBox(height: 20),
 
-                // Primary Login Action
-                SugoBayButton(
-                  text: _isEmailLogin ? 'Login' : 'Send OTP',
-                  onPressed: _handleLogin,
-                  isLoading: _isLoading,
-                ),
-
-                if (!_isEmailLogin) ...[
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => setState(() => _isEmailLogin = true),
-                    child: Text(
-                      'Back to Email Login',
-                      style: AppTextStyles.body.copyWith(
-                        color: AppColors.teal,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+              // Divider
+              Row(
+                children: [
+                  Expanded(child: Divider(color: AppColors.darkGrey)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('or', style: AppTextStyles.caption),
                   ),
+                  Expanded(child: Divider(color: AppColors.darkGrey)),
                 ],
+              ),
+              const SizedBox(height: 20),
 
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "Don't have an account? ",
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                    GestureDetector(
-                      onTap: () => context.push('/register'),
-                      child: const Text(
-                        "Register",
-                        style: TextStyle(
-                          color: AppColors.gold,
-                          fontWeight: FontWeight.bold,
+              // ─── Email Section ──────────────────────────────────
+              if (!_showEmailForm)
+                _buildSocialButton(
+                  label: 'Continue with Email',
+                  icon: Icons.email_rounded,
+                  color: AppColors.cardBg,
+                  textColor: Colors.white,
+                  borderColor: AppColors.darkGrey,
+                  onPressed: _isLoading
+                      ? null
+                      : () => setState(() {
+                            _showEmailForm = true;
+                            _showPhoneForm = false;
+                          }),
+                ),
+
+              if (_showEmailForm)
+                Form(
+                  key: _emailFormKey,
+                  child: Column(
+                    children: [
+                      SugoBayTextField(
+                        label: 'Email',
+                        hint: 'you@example.com',
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Email required';
+                          if (!v.contains('@')) return 'Invalid email';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      SugoBayTextField(
+                        label: 'Password',
+                        hint: 'Enter password',
+                        controller: _passwordController,
+                        obscureText: true,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Password required';
+                          if (v.length < 6) return 'Min 6 characters';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      SugoBayButton(
+                        text: _isSignUp ? 'Sign Up' : 'Sign In',
+                        onPressed: _signInWithEmail,
+                        isLoading: _isLoading && _loadingMethod == 'email',
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => setState(() => _isSignUp = !_isSignUp),
+                        child: Text(
+                          _isSignUp
+                              ? 'Already have an account? Sign In'
+                              : "Don't have an account? Sign Up",
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.teal,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
 
-                const SizedBox(height: 40),
+              if (!_showEmailForm) const SizedBox(height: 12),
 
-                // Divider
-                Row(
-                  children: [
-                    const Expanded(child: Divider(color: AppColors.darkGrey)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'OR CONTINUE WITH',
-                        style: AppTextStyles.caption.copyWith(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
+              // ─── Phone Section ──────────────────────────────────
+              if (!_showPhoneForm && !_showEmailForm)
+                _buildSocialButton(
+                  label: 'Continue with Phone',
+                  icon: Icons.phone_rounded,
+                  color: AppColors.cardBg,
+                  textColor: Colors.white,
+                  borderColor: AppColors.darkGrey,
+                  onPressed: _isLoading
+                      ? null
+                      : () => setState(() {
+                            _showPhoneForm = true;
+                            _showEmailForm = false;
+                          }),
+                ),
+
+              if (_showPhoneForm)
+                Form(
+                  key: _phoneFormKey,
+                  child: Column(
+                    children: [
+                      SugoBayTextField(
+                        label: 'Phone Number',
+                        hint: '9XX XXX XXXX',
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        prefix: Container(
+                          padding: const EdgeInsets.only(left: 14, right: 8),
+                          alignment: Alignment.center,
+                          width: 60,
+                          child: Text(
+                            '+63',
+                            style: AppTextStyles.body.copyWith(
+                              color: AppColors.gold,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Phone number required';
+                          }
+                          final cleaned = value.trim().startsWith('0')
+                              ? value.trim().substring(1)
+                              : value.trim();
+                          if (cleaned.length != 10 ||
+                              !RegExp(r'^\d{10}$').hasMatch(cleaned)) {
+                            return 'Enter a valid 10-digit phone number';
+                          }
+                          return null;
+                        },
                       ),
-                    ),
-                    const Expanded(child: Divider(color: AppColors.darkGrey)),
-                  ],
-                ),
-                const SizedBox(height: 32),
-
-                // Social Logins - Fixed for mobile display
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    _SocialButton(
-                      icon: Icons.g_mobiledata_rounded,
-                      label: 'Google',
-                      color: Colors.white,
-                      textColor: Colors.black87,
-                      onPressed: () => _socialLogin(OAuthProvider.google),
-                      width: (MediaQuery.of(context).size.width - 56 - 12) / 2,
-                    ),
-                    _SocialButton(
-                      icon: Icons.facebook,
-                      label: 'Facebook',
-                      color: const Color(0xFF1877F2),
-                      textColor: Colors.white,
-                      onPressed: () => _socialLogin(OAuthProvider.facebook),
-                      width: (MediaQuery.of(context).size.width - 56 - 12) / 2,
-                    ),
-                    if (_isEmailLogin)
-                      _SocialButton(
-                        icon: Icons.phone_android_rounded,
-                        label: 'Phone Login',
-                        color: AppColors.darkGrey,
-                        textColor: Colors.white,
-                        onPressed: () => setState(() => _isEmailLogin = false),
-                        width: double.infinity, // Phone login on its own row
+                      const SizedBox(height: 16),
+                      SugoBayButton(
+                        text: 'Send OTP',
+                        onPressed: _sendPhoneOtp,
+                        isLoading: _isLoading && _loadingMethod == 'phone',
                       ),
-                  ],
+                    ],
+                  ),
                 ),
 
-                const SizedBox(height: 48),
-                Text(
-                  'By continuing, you agree to our Terms of Service\nand Privacy Policy',
-                  style: AppTextStyles.caption.copyWith(fontSize: 11),
-                  textAlign: TextAlign.center,
+              // Back button when showing forms
+              if (_showEmailForm || _showPhoneForm)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: TextButton(
+                    onPressed: () => setState(() {
+                      _showEmailForm = false;
+                      _showPhoneForm = false;
+                    }),
+                    child: Text(
+                      'Back to all options',
+                      style: AppTextStyles.caption.copyWith(color: AppColors.coral),
+                    ),
+                  ),
                 ),
-              ],
-            ),
+
+              const SizedBox(height: 24),
+              Text(
+                'By continuing, you agree to our Terms of Service',
+                style: AppTextStyles.caption.copyWith(fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-}
 
-class _SocialButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final Color textColor;
-  final VoidCallback onPressed;
-  final double? width;
-
-  const _SocialButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.textColor,
-    required this.onPressed,
-    this.width,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildSocialButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required Color textColor,
+    Color? borderColor,
+    bool isLoading = false,
+    VoidCallback? onPressed,
+  }) {
     return SizedBox(
+      width: double.infinity,
       height: 52,
-      width: width,
-      child: ElevatedButton.icon(
+      child: ElevatedButton(
         onPressed: onPressed,
-        icon: Icon(icon, color: textColor, size: 24),
-        label: Text(
-          label,
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
-        ),
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          foregroundColor: textColor,
           elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: borderColor != null
+                ? BorderSide(color: borderColor)
+                : BorderSide.none,
+          ),
         ),
+        child: isLoading
+            ? SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: textColor,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 24),
+                  const SizedBox(width: 10),
+                  Text(label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      )),
+                ],
+              ),
       ),
     );
   }

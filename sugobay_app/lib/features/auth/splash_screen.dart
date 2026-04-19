@@ -19,7 +19,6 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuthAndRoute() async {
-    // Brief delay to show splash
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
@@ -31,16 +30,26 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     try {
-      final role = await SupabaseService.getUserRole();
+      final profile = await SupabaseService.getUserProfile();
       if (!mounted) return;
-      _routeByRole(role);
+
+      // No profile or incomplete → profile setup
+      if (profile == null ||
+          profile['role'] == null ||
+          profile['phone'] == null) {
+        context.go('/profile-setup');
+        return;
+      }
+
+      _routeByRole(profile);
     } catch (e) {
       if (!mounted) return;
       context.go('/login');
     }
   }
 
-  void _routeByRole(String? role) {
+  void _routeByRole(Map<String, dynamic> profile) {
+    final role = profile['role'] as String?;
     switch (role) {
       case 'customer':
         context.go('/customer');
@@ -55,7 +64,7 @@ class _SplashScreenState extends State<SplashScreen> {
         _launchAdminPanel();
         break;
       default:
-        context.go('/login');
+        context.go('/profile-setup');
     }
   }
 
@@ -64,7 +73,6 @@ class _SplashScreenState extends State<SplashScreen> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
-    // Sign out so splash doesn't loop back to admin launch
     await SupabaseService.auth.signOut();
     if (!mounted) return;
     context.go('/login');
@@ -87,11 +95,7 @@ class _SplashScreenState extends State<SplashScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset(
-                'assets/images/logo.png',
-                width: 160,
-                height: 160,
-              ),
+              Image.asset('assets/images/logo.png', width: 160, height: 160),
               const SizedBox(height: 24),
               Text(
                 AppConstants.appName,
@@ -101,10 +105,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                AppConstants.tagline,
-                style: AppTextStyles.caption,
-              ),
+              Text(AppConstants.tagline, style: AppTextStyles.caption),
               const SizedBox(height: 40),
               const SizedBox(
                 width: 28,

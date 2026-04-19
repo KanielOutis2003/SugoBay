@@ -155,9 +155,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
     setState(() => _isActionLoading = true);
     try {
-      await SupabaseService.orders()
-          .update({'rider_id': userId, 'status': 'accepted'})
-          .eq('id', widget.jobId);
+      await SupabaseService.orders().update({
+        'rider_id': userId,
+        'status': 'accepted',
+      }).eq('id', widget.jobId);
 
       if (mounted) {
         showSugoBaySnackBar(context, 'Food order accepted!');
@@ -175,9 +176,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<void> _pickUpFoodOrder() async {
     setState(() => _isActionLoading = true);
     try {
-      await SupabaseService.orders()
-          .update({'status': 'picked_up'})
-          .eq('id', widget.jobId);
+      await SupabaseService.orders().update({
+        'status': 'picked_up',
+      }).eq('id', widget.jobId);
 
       if (mounted) {
         showSugoBaySnackBar(context, 'Order picked up! Heading to customer.');
@@ -209,13 +210,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         fileBytes: bytes,
       );
 
-      await SupabaseService.orders()
-          .update({
-            'status': 'delivered',
-            'delivery_proof_photo_url': photoUrl,
-            'delivered_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', widget.jobId);
+      await SupabaseService.orders().update({
+        'status': 'delivered',
+        'delivery_proof_photo_url': photoUrl,
+        'delivered_at': DateTime.now().toIso8601String(),
+      }).eq('id', widget.jobId);
 
       if (mounted) {
         showSugoBaySnackBar(context, 'Order delivered successfully!');
@@ -238,9 +237,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
     setState(() => _isActionLoading = true);
     try {
-      await SupabaseService.pahapitRequests()
-          .update({'rider_id': userId, 'status': 'accepted'})
-          .eq('id', widget.jobId);
+      await SupabaseService.pahapitRequests().update({
+        'rider_id': userId,
+        'status': 'accepted',
+      }).eq('id', widget.jobId);
 
       if (mounted) {
         showSugoBaySnackBar(context, 'Errand accepted!');
@@ -258,9 +258,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<void> _startBuying() async {
     setState(() => _isActionLoading = true);
     try {
-      await SupabaseService.pahapitRequests()
-          .update({'status': 'buying'})
-          .eq('id', widget.jobId);
+      await SupabaseService.pahapitRequests().update({
+        'status': 'buying',
+      }).eq('id', widget.jobId);
 
       if (mounted) {
         showSugoBaySnackBar(context, 'Started buying! Good luck.');
@@ -278,11 +278,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<void> _finishBuyingAndDeliver() async {
     final amountText = _actualAmountController.text.trim();
     if (amountText.isEmpty) {
-      showSugoBaySnackBar(
-        context,
-        'Enter the actual amount spent',
-        isError: true,
-      );
+      showSugoBaySnackBar(context, 'Enter the actual amount spent',
+          isError: true);
       return;
     }
 
@@ -308,19 +305,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         fileBytes: bytes,
       );
 
-      final errandFee =
-          (_pahapitRequest?['errand_fee'] ?? AppConstants.errandFee).toDouble();
+      final errandFee = (_pahapitRequest?['errand_fee'] ?? AppConstants.errandFee).toDouble();
       final deliveryFee = (_pahapitRequest?['delivery_fee'] ?? 0).toDouble();
       final totalAmount = actualAmount + errandFee + deliveryFee;
 
-      await SupabaseService.pahapitRequests()
-          .update({
-            'status': 'delivering',
-            'actual_amount_spent': actualAmount,
-            'receipt_photo_url': receiptUrl,
-            'total_amount': totalAmount,
-          })
-          .eq('id', widget.jobId);
+      await SupabaseService.pahapitRequests().update({
+        'status': 'delivering',
+        'actual_amount_spent': actualAmount,
+        'receipt_photo_url': receiptUrl,
+        'total_amount': totalAmount,
+      }).eq('id', widget.jobId);
 
       if (mounted) {
         showSugoBaySnackBar(context, 'Now delivering to customer!');
@@ -352,13 +346,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         fileBytes: bytes,
       );
 
-      await SupabaseService.pahapitRequests()
-          .update({
-            'status': 'completed',
-            'delivery_proof_photo_url': photoUrl,
-            'completed_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', widget.jobId);
+      await SupabaseService.pahapitRequests().update({
+        'status': 'completed',
+        'delivery_proof_photo_url': photoUrl,
+        'completed_at': DateTime.now().toIso8601String(),
+      }).eq('id', widget.jobId);
 
       if (mounted) {
         showSugoBaySnackBar(context, 'Errand completed!');
@@ -408,22 +400,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         destLat = _pahapitRequest?['store_lat'];
         destLng = _pahapitRequest?['store_lng'];
       } else {
-        destAddress =
-            _customer?['address'] ?? _pahapitRequest?['delivery_address'];
+        destAddress = _customer?['address'] ?? _pahapitRequest?['delivery_address'];
         destLat = _pahapitRequest?['delivery_lat'];
         destLng = _pahapitRequest?['delivery_lng'];
       }
     }
 
     final destinationPoint = parseLatLng(destLat, destLng);
-    if ((destAddress == null || destAddress.isEmpty) &&
-        destinationPoint == null) {
+    if ((destAddress == null || destAddress.isEmpty) && destinationPoint == null) {
       if (mounted) {
-        showSugoBaySnackBar(
-          context,
-          'No destination address available',
-          isError: true,
-        );
+        showSugoBaySnackBar(context, 'No destination address available',
+            isError: true);
       }
       return;
     }
@@ -461,11 +448,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: AppColors.teal),
-            )
+              child: CircularProgressIndicator(color: AppColors.teal))
           : widget.jobType == 'food'
-          ? _buildFoodOrderDetail()
-          : _buildPahapitDetail(),
+              ? _buildFoodOrderDetail()
+              : _buildPahapitDetail(),
     );
   }
 
@@ -474,9 +460,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Widget _buildFoodOrderDetail() {
     if (_order == null) {
       return const EmptyState(
-        icon: Icons.error_outline,
-        title: 'Order not found',
-      );
+          icon: Icons.error_outline, title: 'Order not found');
     }
 
     final status = _order!['status'] ?? 'pending';
@@ -487,8 +471,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final deliveryFee = (_order!['delivery_fee'] ?? 0).toDouble();
     final address = _order!['delivery_address'] ?? 'No address';
     final notes = _order!['notes'] ?? '';
-    final merchantName = _merchant?['shop_name'] ?? 'Unknown';
-    final customerName = _customer?['name'] ?? 'Customer';
+    final merchantName = _merchant?['business_name'] ?? 'Unknown';
+    final customerName = _customer?['full_name'] ?? 'Customer';
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -503,24 +487,19 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   color: AppColors.coral.withAlpha(30),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.restaurant,
-                  color: AppColors.coral,
-                  size: 32,
-                ),
+                child:
+                    const Icon(Icons.restaurant, color: AppColors.coral, size: 32),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Food Delivery',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.coral,
-                      ),
-                    ),
-                    Text(merchantName, style: AppTextStyles.subheading),
+                    Text('Food Delivery',
+                        style: AppTextStyles.caption
+                            .copyWith(color: AppColors.coral)),
+                    Text(merchantName,
+                        style: AppTextStyles.subheading),
                   ],
                 ),
               ),
@@ -535,35 +514,28 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Customer',
-                style: AppTextStyles.caption.copyWith(color: AppColors.gold),
-              ),
+              Text('Customer',
+                  style: AppTextStyles.caption.copyWith(color: AppColors.gold)),
               const SizedBox(height: 8),
               Row(
                 children: [
                   const Icon(Icons.person, color: Colors.white54, size: 20),
                   const SizedBox(width: 8),
-                  Text(
-                    customerName,
-                    style: AppTextStyles.body.copyWith(color: Colors.white),
-                  ),
+                  Text(customerName,
+                      style:
+                          AppTextStyles.body.copyWith(color: Colors.white)),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(
-                    Icons.location_on,
-                    color: Colors.white54,
-                    size: 20,
-                  ),
+                  const Icon(Icons.location_on,
+                      color: Colors.white54, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      address,
-                      style: AppTextStyles.body.copyWith(color: Colors.white),
-                    ),
+                    child: Text(address,
+                        style: AppTextStyles.body
+                            .copyWith(color: Colors.white)),
                   ),
                 ],
               ),
@@ -574,7 +546,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   children: [
                     const Icon(Icons.notes, color: Colors.white54, size: 20),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(notes, style: AppTextStyles.caption)),
+                    Expanded(
+                      child: Text(notes, style: AppTextStyles.caption),
+                    ),
                   ],
                 ),
               ],
@@ -588,10 +562,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Order Items',
-                style: AppTextStyles.caption.copyWith(color: AppColors.gold),
-              ),
+              Text('Order Items',
+                  style: AppTextStyles.caption.copyWith(color: AppColors.gold)),
               const SizedBox(height: 12),
               ..._orderItems.map((item) {
                 final name = item['menu_items']?['name'] ?? 'Item';
@@ -601,27 +573,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
-                      Text(
-                        '${qty}x',
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.teal,
-                        ),
-                      ),
+                      Text('${qty}x',
+                          style: AppTextStyles.body
+                              .copyWith(color: AppColors.teal)),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          name,
-                          style: AppTextStyles.body.copyWith(
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '\u20B1${price.toStringAsFixed(2)}',
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.gold,
-                        ),
-                      ),
+                          child: Text(name,
+                              style: AppTextStyles.body
+                                  .copyWith(color: Colors.white))),
+                      Text('\u20B1${price.toStringAsFixed(2)}',
+                          style: AppTextStyles.body
+                              .copyWith(color: AppColors.gold)),
                     ],
                   ),
                 );
@@ -630,32 +592,23 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Delivery Fee',
-                    style: AppTextStyles.body.copyWith(color: Colors.white),
-                  ),
-                  Text(
-                    '\u20B1${deliveryFee.toStringAsFixed(2)}',
-                    style: AppTextStyles.body.copyWith(color: AppColors.gold),
-                  ),
+                  Text('Delivery Fee',
+                      style: AppTextStyles.body.copyWith(color: Colors.white)),
+                  Text('\u20B1${deliveryFee.toStringAsFixed(2)}',
+                      style:
+                          AppTextStyles.body.copyWith(color: AppColors.gold)),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Total',
-                    style: AppTextStyles.subheading.copyWith(
-                      color: Colors.white,
-                    ),
-                  ),
-                  Text(
-                    '\u20B1${total.toStringAsFixed(2)}',
-                    style: AppTextStyles.subheading.copyWith(
-                      color: AppColors.gold,
-                    ),
-                  ),
+                  Text('Total',
+                      style: AppTextStyles.subheading
+                          .copyWith(color: Colors.white)),
+                  Text('\u20B1${total.toStringAsFixed(2)}',
+                      style: AppTextStyles.subheading
+                          .copyWith(color: AppColors.gold)),
                 ],
               ),
             ],
@@ -680,7 +633,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
-  Widget _buildFoodActionButton(String status, String? riderId, bool isMyJob) {
+  Widget _buildFoodActionButton(
+      String status, String? riderId, bool isMyJob) {
     // Not assigned yet
     if (riderId == null &&
         (status == 'pending' || status == 'ready_for_pickup')) {
@@ -695,10 +649,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     if (!isMyJob) {
       return SugoBayCard(
         child: Center(
-          child: Text(
-            'Assigned to another rider',
-            style: AppTextStyles.body.copyWith(color: Colors.white54),
-          ),
+          child: Text('Assigned to another rider',
+              style: AppTextStyles.body.copyWith(color: Colors.white54)),
         ),
       );
     }
@@ -712,16 +664,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             const SizedBox(
               width: 20,
               height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.gold,
-              ),
+              child:
+                  CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
             ),
             const SizedBox(width: 12),
-            Text(
-              'Waiting for merchant to prepare...',
-              style: AppTextStyles.body.copyWith(color: AppColors.gold),
-            ),
+            Text('Waiting for merchant to prepare...',
+                style: AppTextStyles.body.copyWith(color: AppColors.gold)),
           ],
         ),
       );
@@ -755,12 +703,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           children: [
             const Icon(Icons.check_circle, color: AppColors.success),
             const SizedBox(width: 8),
-            Text(
-              'Delivered',
-              style: AppTextStyles.subheading.copyWith(
-                color: AppColors.success,
-              ),
-            ),
+            Text('Delivered',
+                style:
+                    AppTextStyles.subheading.copyWith(color: AppColors.success)),
           ],
         ),
       );
@@ -774,9 +719,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Widget _buildPahapitDetail() {
     if (_pahapitRequest == null) {
       return const EmptyState(
-        icon: Icons.error_outline,
-        title: 'Request not found',
-      );
+          icon: Icons.error_outline, title: 'Request not found');
     }
 
     final status = _pahapitRequest!['status'] ?? 'pending';
@@ -787,19 +730,18 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final storeCategory = _pahapitRequest!['store_category'] ?? '';
     final itemsDescription = _pahapitRequest!['items_description'] ?? '';
     final budgetLimit = (_pahapitRequest!['budget_limit'] ?? 0).toDouble();
-    final specialInstructions = _pahapitRequest!['special_instructions'] ?? '';
-    final errandFee = (_pahapitRequest!['errand_fee'] ?? AppConstants.errandFee)
-        .toDouble();
+    final specialInstructions =
+        _pahapitRequest!['special_instructions'] ?? '';
+    final errandFee =
+        (_pahapitRequest!['errand_fee'] ?? AppConstants.errandFee).toDouble();
     final deliveryFee = (_pahapitRequest!['delivery_fee'] ?? 0).toDouble();
-    final actualAmountSpent = (_pahapitRequest!['actual_amount_spent'] ?? 0)
-        .toDouble();
+    final actualAmountSpent =
+        (_pahapitRequest!['actual_amount_spent'] ?? 0).toDouble();
     final totalAmount = (_pahapitRequest!['total_amount'] ?? 0).toDouble();
-    final customerName = _customer?['name'] ?? 'Customer';
+    final customerName = _customer?['full_name'] ?? 'Customer';
     final customerPhone = _customer?['phone'] ?? '';
     final deliveryAddress =
-        _customer?['address'] ??
-        _pahapitRequest!['delivery_address'] ??
-        'No address';
+        _customer?['address'] ?? _pahapitRequest!['delivery_address'] ?? 'No address';
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -814,23 +756,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   color: AppColors.teal.withAlpha(30),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.shopping_bag,
-                  color: AppColors.teal,
-                  size: 32,
-                ),
+                child: const Icon(Icons.shopping_bag,
+                    color: AppColors.teal, size: 32),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Pahapit Errand',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.teal,
-                      ),
-                    ),
+                    Text('Pahapit Errand',
+                        style: AppTextStyles.caption
+                            .copyWith(color: AppColors.teal)),
                     Text(storeName, style: AppTextStyles.subheading),
                     if (storeCategory.isNotEmpty)
                       Text(storeCategory, style: AppTextStyles.caption),
@@ -848,19 +784,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Customer',
-                style: AppTextStyles.caption.copyWith(color: AppColors.gold),
-              ),
+              Text('Customer',
+                  style: AppTextStyles.caption.copyWith(color: AppColors.gold)),
               const SizedBox(height: 8),
               Row(
                 children: [
                   const Icon(Icons.person, color: Colors.white54, size: 20),
                   const SizedBox(width: 8),
-                  Text(
-                    customerName,
-                    style: AppTextStyles.body.copyWith(color: Colors.white),
-                  ),
+                  Text(customerName,
+                      style:
+                          AppTextStyles.body.copyWith(color: Colors.white)),
                 ],
               ),
               if (customerPhone.isNotEmpty) ...[
@@ -869,27 +802,22 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   children: [
                     const Icon(Icons.phone, color: Colors.white54, size: 20),
                     const SizedBox(width: 8),
-                    Text(
-                      customerPhone,
-                      style: AppTextStyles.body.copyWith(color: Colors.white),
-                    ),
+                    Text(customerPhone,
+                        style:
+                            AppTextStyles.body.copyWith(color: Colors.white)),
                   ],
                 ),
               ],
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(
-                    Icons.location_on,
-                    color: Colors.white54,
-                    size: 20,
-                  ),
+                  const Icon(Icons.location_on,
+                      color: Colors.white54, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      deliveryAddress,
-                      style: AppTextStyles.body.copyWith(color: Colors.white),
-                    ),
+                    child: Text(deliveryAddress,
+                        style:
+                            AppTextStyles.body.copyWith(color: Colors.white)),
                   ),
                 ],
               ),
@@ -903,42 +831,30 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Items to Buy',
-                style: AppTextStyles.caption.copyWith(color: AppColors.gold),
-              ),
+              Text('Items to Buy',
+                  style: AppTextStyles.caption.copyWith(color: AppColors.gold)),
               const SizedBox(height: 8),
-              Text(
-                itemsDescription,
-                style: AppTextStyles.body.copyWith(color: Colors.white),
-              ),
+              Text(itemsDescription,
+                  style: AppTextStyles.body.copyWith(color: Colors.white)),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Budget Limit',
-                    style: AppTextStyles.body.copyWith(color: Colors.white70),
-                  ),
-                  Text(
-                    '\u20B1${budgetLimit.toStringAsFixed(2)}',
-                    style: AppTextStyles.subheading.copyWith(
-                      color: AppColors.gold,
-                    ),
-                  ),
+                  Text('Budget Limit',
+                      style: AppTextStyles.body.copyWith(color: Colors.white70)),
+                  Text('\u20B1${budgetLimit.toStringAsFixed(2)}',
+                      style: AppTextStyles.subheading
+                          .copyWith(color: AppColors.gold)),
                 ],
               ),
               if (specialInstructions.isNotEmpty) ...[
                 const Divider(color: AppColors.darkGrey, height: 20),
-                Text(
-                  'Special Instructions',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.coral),
-                ),
+                Text('Special Instructions',
+                    style:
+                        AppTextStyles.caption.copyWith(color: AppColors.coral)),
                 const SizedBox(height: 4),
-                Text(
-                  specialInstructions,
-                  style: AppTextStyles.body.copyWith(color: Colors.white),
-                ),
+                Text(specialInstructions,
+                    style: AppTextStyles.body.copyWith(color: Colors.white)),
               ],
             ],
           ),
@@ -950,23 +866,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Fee Breakdown',
-                style: AppTextStyles.caption.copyWith(color: AppColors.gold),
-              ),
+              Text('Fee Breakdown',
+                  style: AppTextStyles.caption.copyWith(color: AppColors.gold)),
               const SizedBox(height: 8),
               _feeRow('Errand Fee', '\u20B1${errandFee.toStringAsFixed(2)}'),
               const SizedBox(height: 4),
               _feeRow(
-                'Delivery Fee',
-                '\u20B1${deliveryFee.toStringAsFixed(2)}',
-              ),
+                  'Delivery Fee', '\u20B1${deliveryFee.toStringAsFixed(2)}'),
               if (actualAmountSpent > 0) ...[
                 const SizedBox(height: 4),
-                _feeRow(
-                  'Items Cost',
-                  '\u20B1${actualAmountSpent.toStringAsFixed(2)}',
-                ),
+                _feeRow('Items Cost',
+                    '\u20B1${actualAmountSpent.toStringAsFixed(2)}'),
               ],
               if (totalAmount > 0) ...[
                 const Divider(color: AppColors.darkGrey, height: 16),
@@ -998,9 +908,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 Expanded(
                   child: Text(
                     'If items exceed budget of \u20B1${budgetLimit.toStringAsFixed(0)}, call customer first',
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.warning,
-                    ),
+                    style:
+                        AppTextStyles.caption.copyWith(color: AppColors.warning),
                   ),
                 ),
               ],
@@ -1028,30 +937,21 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: bold
-              ? AppTextStyles.body.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                )
-              : AppTextStyles.body.copyWith(color: Colors.white70),
-        ),
-        Text(
-          value,
-          style: bold
-              ? AppTextStyles.subheading.copyWith(color: AppColors.gold)
-              : AppTextStyles.body.copyWith(color: AppColors.gold),
-        ),
+        Text(label,
+            style: bold
+                ? AppTextStyles.body
+                    .copyWith(color: Colors.white, fontWeight: FontWeight.bold)
+                : AppTextStyles.body.copyWith(color: Colors.white70)),
+        Text(value,
+            style: bold
+                ? AppTextStyles.subheading.copyWith(color: AppColors.gold)
+                : AppTextStyles.body.copyWith(color: AppColors.gold)),
       ],
     );
   }
 
   Widget _buildPahapitActionButton(
-    String status,
-    String? riderId,
-    bool isMyJob,
-  ) {
+      String status, String? riderId, bool isMyJob) {
     // Not assigned
     if (riderId == null && status == 'pending') {
       return SugoBayButton(
@@ -1065,10 +965,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     if (!isMyJob) {
       return SugoBayCard(
         child: Center(
-          child: Text(
-            'Assigned to another rider',
-            style: AppTextStyles.body.copyWith(color: Colors.white54),
-          ),
+          child: Text('Assigned to another rider',
+              style: AppTextStyles.body.copyWith(color: Colors.white54)),
         ),
       );
     }
@@ -1123,12 +1021,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           children: [
             const Icon(Icons.check_circle, color: AppColors.success),
             const SizedBox(width: 8),
-            Text(
-              'Completed',
-              style: AppTextStyles.subheading.copyWith(
-                color: AppColors.success,
-              ),
-            ),
+            Text('Completed',
+                style:
+                    AppTextStyles.subheading.copyWith(color: AppColors.success)),
           ],
         ),
       );

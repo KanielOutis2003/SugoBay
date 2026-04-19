@@ -13,13 +13,19 @@ class AppConstants {
   static String get supabaseAnonKey =>
       _env('SUPABASE_ANON_KEY', 'YOUR_SUPABASE_ANON_KEY');
 
+  // OAuth
+  static String get googleWebClientId =>
+      _env('GOOGLE_WEB_CLIENT_ID', 'YOUR_GOOGLE_WEB_CLIENT_ID');
+  static String get facebookAppId =>
+      _env('FACEBOOK_APP_ID', 'YOUR_FACEBOOK_APP_ID');
+
   // OpenStreetMap default center (Ubay, Bohol)
   static const LatLng defaultMapCenter = LatLng(10.0570, 124.4703);
 
   // App Info
   static const String appName = 'SugoBay';
   static const String tagline = 'Sugo para sa tanan sa Ubay';
-  static const String version = '2.0.0';
+  static const String version = '3.0.0';
 
   // Delivery Fee
   static const double baseDeliveryFee = 30.0;
@@ -46,7 +52,7 @@ class AppConstants {
 
   // Admin panel URL
   static String get adminPanelUrl =>
-      _env('ADMIN_PANEL_URL', 'https://sugobay-admin.netlify.app');
+      _env('ADMIN_PANEL_URL', 'https://sugobay.shop');
 }
 
 class AppColors {

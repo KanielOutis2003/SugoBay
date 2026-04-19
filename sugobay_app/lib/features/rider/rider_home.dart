@@ -59,7 +59,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      await Future.wait([_loadProfile(), _loadJobs(), _loadStats()]);
+      await Future.wait([
+        _loadProfile(),
+        _loadJobs(),
+        _loadStats(),
+      ]);
     } catch (e) {
       if (mounted) {
         showSugoBaySnackBar(context, 'Error loading data: $e', isError: true);
@@ -98,28 +102,28 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
 
     // Available food orders (pending or ready_for_pickup, no rider assigned)
     final availableFood = await SupabaseService.orders()
-        .select('*, merchants(shop_name)')
+        .select('*, merchants(business_name)')
         .or('status.eq.pending,status.eq.ready_for_pickup')
         .isFilter('rider_id', null)
         .order('created_at', ascending: false);
 
     // Available pahapit requests (pending, no rider assigned)
     final availablePahapit = await SupabaseService.pahapitRequests()
-        .select('*, users(name)')
+        .select('*, users(full_name)')
         .eq('status', 'pending')
         .isFilter('rider_id', null)
         .order('created_at', ascending: false);
 
     // My active food orders
     final myFood = await SupabaseService.orders()
-        .select('*, merchants(shop_name)')
+        .select('*, merchants(business_name)')
         .eq('rider_id', userId)
         .not('status', 'in', '(delivered,cancelled)')
         .order('created_at', ascending: false);
 
     // My active pahapit jobs
     final myPahapit = await SupabaseService.pahapitRequests()
-        .select('*, users(name)')
+        .select('*, users(full_name)')
         .eq('rider_id', userId)
         .not('status', 'in', '(completed,cancelled)')
         .order('created_at', ascending: false);
@@ -127,9 +131,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
     if (mounted) {
       setState(() {
         _availableFoodOrders = List<Map<String, dynamic>>.from(availableFood);
-        _availablePahapitJobs = List<Map<String, dynamic>>.from(
-          availablePahapit,
-        );
+        _availablePahapitJobs =
+            List<Map<String, dynamic>>.from(availablePahapit);
         _myActiveFoodOrders = List<Map<String, dynamic>>.from(myFood);
         _myActivePahapitJobs = List<Map<String, dynamic>>.from(myPahapit);
       });
@@ -179,20 +182,16 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
       earnings += fee * AppConstants.riderDeliveryFeePercent;
     }
     for (final job in pahapitToday) {
-      final errandFee = (job['errand_fee'] ?? AppConstants.errandFee)
-          .toDouble();
+      final errandFee = (job['errand_fee'] ?? AppConstants.errandFee).toDouble();
       final deliveryFee = (job['delivery_fee'] ?? 0).toDouble();
-      earnings +=
-          errandFee * (1 - AppConstants.errandFeeCutPercent) +
+      earnings += errandFee * (1 - AppConstants.errandFeeCutPercent) +
           deliveryFee * AppConstants.riderDeliveryFeePercent;
     }
 
     double avgRating = 0;
     if (ratingsData.isNotEmpty) {
       final total = ratingsData.fold<double>(
-        0,
-        (sum, r) => sum + (r['rating'] as num).toDouble(),
-      );
+          0, (sum, r) => sum + (r['rating'] as num).toDouble());
       avgRating = total / ratingsData.length;
     }
 
@@ -241,11 +240,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
           permission = await Geolocator.requestPermission();
           if (permission == LocationPermission.denied) {
             if (mounted) {
-              showSugoBaySnackBar(
-                context,
-                'Location permission denied',
-                isError: true,
-              );
+              showSugoBaySnackBar(context, 'Location permission denied',
+                  isError: true);
             }
             return;
           }
@@ -253,17 +249,13 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
         if (permission == LocationPermission.deniedForever) {
           if (mounted) {
             showSugoBaySnackBar(
-              context,
-              'Location permission permanently denied. Enable in settings.',
-              isError: true,
-            );
+                context, 'Location permission permanently denied. Enable in settings.',
+                isError: true);
           }
           return;
         }
 
-        final position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-        );
+        final position = await Geolocator.getCurrentPosition();
 
         await SupabaseService.riderLocations().upsert({
           'rider_id': userId,
@@ -271,7 +263,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
           'lng': position.longitude,
           'is_online': true,
           'updated_at': DateTime.now().toIso8601String(),
-        }, onConflict: 'rider_id');
+        });
 
         _startGpsTracking();
       } else {
@@ -307,9 +299,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
     if (userId == null || !_isOnline) return;
 
     try {
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
+      final position = await Geolocator.getCurrentPosition();
 
       await SupabaseService.riderLocations()
           .update({
@@ -324,10 +314,10 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   }
 
   String get _statusLevel {
-    if (_totalJobs >= 500) return 'Gold';
-    if (_totalJobs >= 200) return 'Silver';
-    if (_totalJobs >= 50) return 'Bronze';
-    return 'Starter';
+    if (_totalJobs >= 500 && _averageRating >= 4.7) return 'Elite';
+    if (_totalJobs >= 200) return 'Trusted';
+    if (_totalJobs >= 50) return 'Regular';
+    return 'Rookie';
   }
 
   Future<void> _logout() async {
@@ -355,7 +345,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
               Switch(
                 value: _isOnline,
                 onChanged: _toggleOnline,
-                activeColor: AppColors.success,
+                activeThumbColor: AppColors.success,
                 inactiveThumbColor: AppColors.error,
               ),
             ],
@@ -368,8 +358,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: AppColors.teal),
-            )
+              child: CircularProgressIndicator(color: AppColors.teal))
           : IndexedStack(
               index: _currentTab,
               children: [
@@ -387,9 +376,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Jobs'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.account_balance_wallet),
-            label: 'Earnings',
-          ),
+              icon: Icon(Icons.account_balance_wallet), label: 'Earnings'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
@@ -403,12 +390,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _statItem('${_todayDeliveries + _todayPahapitJobs}', "Today's Jobs"),
+          _statItem(
+              '${_todayDeliveries + _todayPahapitJobs}', "Today's Jobs"),
           Container(width: 1, height: 40, color: AppColors.darkGrey),
           _statItem(
-            '\u20B1${_todayEarnings.toStringAsFixed(0)}',
-            'Est. Earnings',
-          ),
+              '\u20B1${_todayEarnings.toStringAsFixed(0)}', 'Est. Earnings'),
           Container(width: 1, height: 40, color: AppColors.darkGrey),
           _statItem(_statusLevel, 'Level'),
         ],
@@ -419,10 +405,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   Widget _statItem(String value, String label) {
     return Column(
       children: [
-        Text(
-          value,
-          style: AppTextStyles.subheading.copyWith(color: AppColors.gold),
-        ),
+        Text(value,
+            style: AppTextStyles.subheading.copyWith(color: AppColors.gold)),
         const SizedBox(height: 4),
         Text(label, style: AppTextStyles.caption),
       ],
@@ -448,23 +432,19 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
 
           // My Active Jobs
           if (hasMyJobs) ...[
-            Text(
-              'My Active Jobs',
-              style: AppTextStyles.subheading.copyWith(color: AppColors.coral),
-            ),
+            Text('My Active Jobs',
+                style:
+                    AppTextStyles.subheading.copyWith(color: AppColors.coral)),
             const SizedBox(height: 12),
             ..._myActiveFoodOrders.map((o) => _buildFoodJobCard(o, mine: true)),
-            ..._myActivePahapitJobs.map(
-              (p) => _buildPahapitJobCard(p, mine: true),
-            ),
+            ..._myActivePahapitJobs
+                .map((p) => _buildPahapitJobCard(p, mine: true)),
             const SizedBox(height: 20),
           ],
 
           // Available Jobs
-          Text(
-            'Available Jobs',
-            style: AppTextStyles.subheading.copyWith(color: AppColors.teal),
-          ),
+          Text('Available Jobs',
+              style: AppTextStyles.subheading.copyWith(color: AppColors.teal)),
           const SizedBox(height: 12),
 
           if (!hasAvailable)
@@ -482,7 +462,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   }
 
   Widget _buildFoodJobCard(Map<String, dynamic> order, {bool mine = false}) {
-    final merchantName = order['merchants']?['shop_name'] ?? 'Unknown Merchant';
+    final merchantName =
+        order['merchants']?['business_name'] ?? 'Unknown Merchant';
     final status = order['status'] ?? 'pending';
     final total = (order['total_amount'] ?? 0).toDouble();
     final deliveryFee = (order['delivery_fee'] ?? 0).toDouble();
@@ -511,40 +492,29 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          merchantName,
-                          style: AppTextStyles.body.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
+                        child: Text(merchantName,
+                            style: AppTextStyles.body
+                                .copyWith(fontWeight: FontWeight.bold,
+                                    color: Colors.white)),
                       ),
                       StatusBadge(status: status),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    address,
-                    style: AppTextStyles.caption,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(address,
+                      style: AppTextStyles.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Text(
-                        '\u20B1${total.toStringAsFixed(2)}',
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.gold,
-                        ),
-                      ),
+                      Text('\u20B1${total.toStringAsFixed(2)}',
+                          style: AppTextStyles.body
+                              .copyWith(color: AppColors.gold)),
                       const Spacer(),
-                      Text(
-                        'Fee: \u20B1${deliveryFee.toStringAsFixed(2)}',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.teal,
-                        ),
-                      ),
+                      Text('Fee: \u20B1${deliveryFee.toStringAsFixed(2)}',
+                          style: AppTextStyles.caption
+                              .copyWith(color: AppColors.teal)),
                     ],
                   ),
                 ],
@@ -561,9 +531,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
     final status = job['status'] ?? 'pending';
     final budget = (job['budget_limit'] ?? 0).toDouble();
     final description = job['items_description'] ?? '';
-    final truncatedDesc = description.length > 60
-        ? '${description.substring(0, 60)}...'
-        : description;
+    final truncatedDesc =
+        description.length > 60 ? '${description.substring(0, 60)}...' : description;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -578,7 +547,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                 color: AppColors.teal.withAlpha(30),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.shopping_bag, color: AppColors.teal),
+              child:
+                  const Icon(Icons.shopping_bag, color: AppColors.teal),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -588,40 +558,30 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          storeName,
-                          style: AppTextStyles.body.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
+                        child: Text(storeName,
+                            style: AppTextStyles.body
+                                .copyWith(fontWeight: FontWeight.bold,
+                                    color: Colors.white)),
                       ),
                       StatusBadge(status: status),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    truncatedDesc,
-                    style: AppTextStyles.caption,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(truncatedDesc,
+                      style: AppTextStyles.caption,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Text(
-                        'Budget: \u20B1${budget.toStringAsFixed(2)}',
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.gold,
-                        ),
-                      ),
+                      Text('Budget: \u20B1${budget.toStringAsFixed(2)}',
+                          style: AppTextStyles.body
+                              .copyWith(color: AppColors.gold)),
                       const Spacer(),
                       Text(
-                        'Fee: \u20B1${AppConstants.errandFee.toStringAsFixed(0)}',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.teal,
-                        ),
-                      ),
+                          'Fee: \u20B1${AppConstants.errandFee.toStringAsFixed(0)}',
+                          style: AppTextStyles.caption
+                              .copyWith(color: AppColors.teal)),
                     ],
                   ),
                 ],
@@ -646,35 +606,21 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
         _buildStatsCard(),
         const SizedBox(height: 24),
 
-        Text(
-          "Today's Breakdown",
-          style: AppTextStyles.subheading.copyWith(color: AppColors.gold),
-        ),
+        Text("Today's Breakdown",
+            style: AppTextStyles.subheading.copyWith(color: AppColors.gold)),
         const SizedBox(height: 16),
 
         SugoBayCard(
           child: Column(
             children: [
-              _earningsRow(
-                Icons.restaurant,
-                'Food Deliveries',
-                '$_todayDeliveries',
-                AppColors.coral,
-              ),
+              _earningsRow(Icons.restaurant, 'Food Deliveries',
+                  '$_todayDeliveries', AppColors.coral),
+              const Divider(color: AppColors.darkGrey, height: 24),
+              _earningsRow(Icons.shopping_bag, 'Pahapit Errands',
+                  '$_todayPahapitJobs', AppColors.teal),
               const Divider(color: AppColors.darkGrey, height: 24),
               _earningsRow(
-                Icons.shopping_bag,
-                'Pahapit Errands',
-                '$_todayPahapitJobs',
-                AppColors.teal,
-              ),
-              const Divider(color: AppColors.darkGrey, height: 24),
-              _earningsRow(
-                Icons.work,
-                'Total Jobs',
-                '$totalToday',
-                AppColors.gold,
-              ),
+                  Icons.work, 'Total Jobs', '$totalToday', AppColors.gold),
             ],
           ),
         ),
@@ -688,17 +634,13 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Daily Quota',
-                    style: AppTextStyles.body.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Text(
-                    '$totalToday / $dailyTarget',
-                    style: AppTextStyles.body.copyWith(color: AppColors.gold),
-                  ),
+                  Text('Daily Quota',
+                      style: AppTextStyles.body
+                          .copyWith(fontWeight: FontWeight.bold,
+                              color: Colors.white)),
+                  Text('$totalToday / $dailyTarget',
+                      style:
+                          AppTextStyles.body.copyWith(color: AppColors.gold)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -715,17 +657,12 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
               ),
               const SizedBox(height: 8),
               if (progress >= 1.0)
-                Text(
-                  'Quota reached! Great job!',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.success,
-                  ),
-                )
+                Text('Quota reached! Great job!',
+                    style:
+                        AppTextStyles.caption.copyWith(color: AppColors.success))
               else
-                Text(
-                  '${dailyTarget - totalToday} more to hit daily target',
-                  style: AppTextStyles.caption,
-                ),
+                Text('${dailyTarget - totalToday} more to hit daily target',
+                    style: AppTextStyles.caption),
             ],
           ),
         ),
@@ -735,21 +672,14 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
         SugoBayCard(
           child: Column(
             children: [
-              const Icon(
-                Icons.account_balance_wallet,
-                color: AppColors.gold,
-                size: 40,
-              ),
+              const Icon(Icons.account_balance_wallet,
+                  color: AppColors.gold, size: 40),
               const SizedBox(height: 12),
-              Text(
-                'Estimated Earnings Today',
-                style: AppTextStyles.body.copyWith(color: Colors.white70),
-              ),
+              Text('Estimated Earnings Today',
+                  style: AppTextStyles.body.copyWith(color: Colors.white70)),
               const SizedBox(height: 8),
-              Text(
-                '\u20B1${_todayEarnings.toStringAsFixed(2)}',
-                style: AppTextStyles.heading.copyWith(color: AppColors.gold),
-              ),
+              Text('\u20B1${_todayEarnings.toStringAsFixed(2)}',
+                  style: AppTextStyles.heading.copyWith(color: AppColors.gold)),
             ],
           ),
         ),
@@ -757,18 +687,17 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
     );
   }
 
-  Widget _earningsRow(IconData icon, String label, String value, Color color) {
+  Widget _earningsRow(
+      IconData icon, String label, String value, Color color) {
     return Row(
       children: [
         Icon(icon, color: color, size: 24),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.body.copyWith(color: Colors.white),
-          ),
-        ),
-        Text(value, style: AppTextStyles.subheading.copyWith(color: color)),
+            child: Text(label,
+                style: AppTextStyles.body.copyWith(color: Colors.white))),
+        Text(value,
+            style: AppTextStyles.subheading.copyWith(color: color)),
       ],
     );
   }
@@ -776,7 +705,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   // ─── Profile Tab ─────────────────────────────────────────────────────
 
   Widget _buildProfileTab() {
-    final name = _profile?['name'] ?? 'Rider';
+    final name = _profile?['full_name'] ?? 'Rider';
     final phone = _profile?['phone'] ?? '';
 
     return ListView(
@@ -795,11 +724,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
         ),
         const SizedBox(height: 16),
         Center(
-          child: Text(
-            name,
-            style: AppTextStyles.heading.copyWith(fontSize: 22),
-          ),
-        ),
+            child: Text(name,
+                style: AppTextStyles.heading.copyWith(fontSize: 22))),
         const SizedBox(height: 4),
         Center(child: Text(phone, style: AppTextStyles.caption)),
         const SizedBox(height: 24),
@@ -809,11 +735,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
             children: [
               _profileRow(Icons.work, 'Total Jobs', '$_totalJobs'),
               const Divider(color: AppColors.darkGrey, height: 20),
-              _profileRow(
-                Icons.star,
-                'Average Rating',
-                _averageRating > 0 ? _averageRating.toStringAsFixed(1) : 'N/A',
-              ),
+              _profileRow(Icons.star, 'Average Rating',
+                  _averageRating > 0 ? _averageRating.toStringAsFixed(1) : 'N/A'),
               const Divider(color: AppColors.darkGrey, height: 20),
               _profileRow(Icons.emoji_events, 'Status Level', _statusLevel),
             ],
@@ -836,18 +759,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
         Icon(icon, color: AppColors.gold, size: 22),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.body.copyWith(color: Colors.white),
-          ),
-        ),
-        Text(
-          value,
-          style: AppTextStyles.body.copyWith(
-            color: AppColors.gold,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+            child: Text(label,
+                style: AppTextStyles.body.copyWith(color: Colors.white))),
+        Text(value,
+            style: AppTextStyles.body
+                .copyWith(color: AppColors.gold, fontWeight: FontWeight.bold)),
       ],
     );
   }
