@@ -264,7 +264,23 @@ insert into app_settings (key, value) values
 on conflict (key) do nothing;
 
 -- =====================================================
--- ROW LEVEL SECURITY (RLS)
+-- ROW LEVEL SECURITY (RLS) HELPER FUNCTIONS
+-- =====================================================
+
+-- Security definer function to check for admin role and avoid recursion
+create or replace function public.is_admin()
+returns boolean as $$
+begin
+  return exists (
+    select 1 from public.users 
+    where id = auth.uid() 
+    and role = 'admin'
+  );
+end;
+$$ language plpgsql security definer;
+
+-- =====================================================
+-- ROW LEVEL SECURITY (RLS) POLICIES
 -- =====================================================
 
 alter table users enable row level security;
@@ -289,7 +305,7 @@ create policy "Users read own" on users for select using (auth.uid() = id);
 create policy "Users insert own" on users for insert with check (auth.uid() = id);
 create policy "Users update own" on users for update using (auth.uid() = id);
 create policy "Admins manage all users" on users for all using (
-  (select role from users where id = auth.uid()) = 'admin'
+  public.is_admin()
 );
 
 -- Merchants: everyone reads approved, owner manages own
@@ -298,7 +314,7 @@ create policy "Owner reads own merchant" on merchants for select using (user_id 
 create policy "Owner inserts merchant" on merchants for insert with check (user_id = auth.uid());
 create policy "Owner updates merchant" on merchants for update using (user_id = auth.uid());
 create policy "Admins manage all merchants" on merchants for all using (
-  (select role from users where id = auth.uid()) = 'admin'
+  public.is_admin()
 );
 
 -- Menu Items: everyone reads available, merchant owner manages
@@ -307,7 +323,7 @@ create policy "Merchant manages menu" on menu_items for all using (
   merchant_id in (select id from merchants where user_id = auth.uid())
 );
 create policy "Admins manage all menu items" on menu_items for all using (
-  (select role from users where id = auth.uid()) = 'admin'
+  public.is_admin()
 );
 
 -- Orders: customer reads own, merchant reads own, rider reads assigned
@@ -324,7 +340,7 @@ create policy "Merchant updates order" on orders for update using (
   merchant_id in (select id from merchants where user_id = auth.uid())
 );
 create policy "Admins manage all orders" on orders for all using (
-  (select role from users where id = auth.uid()) = 'admin'
+  public.is_admin()
 );
 
 -- Order Items
@@ -335,7 +351,7 @@ create policy "Customer inserts order items" on order_items for insert with chec
   order_id in (select id from orders where customer_id = auth.uid())
 );
 create policy "Admins manage all order items" on order_items for all using (
-  (select role from users where id = auth.uid()) = 'admin'
+  public.is_admin()
 );
 
 -- Pahapit Requests
@@ -346,7 +362,7 @@ create policy "Rider reads available pahapit" on pahapit_requests for select usi
 create policy "Customer creates pahapit" on pahapit_requests for insert with check (customer_id = auth.uid());
 create policy "Rider updates pahapit" on pahapit_requests for update using (rider_id = auth.uid());
 create policy "Admins manage all pahapit" on pahapit_requests for all using (
-  (select role from users where id = auth.uid()) = 'admin'
+  public.is_admin()
 );
 
 -- Rider Locations
