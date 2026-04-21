@@ -23,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _emailFormKey = GlobalKey<FormState>();
   bool _showEmailForm = false;
-  bool _isSignUp = false;
 
   // Phone form
   final _phoneController = TextEditingController();
@@ -56,8 +55,26 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       final role = profile['role'] as String;
-      final isApproved = profile['is_approved'] as bool? ?? true;
 
+      // Check merchant approval status before allowing access
+      if (role == 'merchant') {
+        final userId = SupabaseService.auth.currentUser!.id;
+        final merchantRes = await SupabaseService.client
+            .from('merchants')
+            .select('is_approved')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (merchantRes == null || merchantRes['is_approved'] != true) {
+          // Sign them out — they can't access the app yet
+          await SupabaseService.auth.signOut();
+          if (!mounted) return;
+          _showApprovalPendingDialog();
+          return;
+        }
+      }
+
+      if (!mounted) return;
       switch (role) {
         case 'customer':
           context.go('/customer');
@@ -66,11 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
           context.go('/rider-home');
           break;
         case 'merchant':
-          if (isApproved) {
-            context.go('/merchant-home');
-          } else {
-            context.go('/merchant-home');
-          }
+          context.go('/merchant-home');
           break;
         case 'admin':
           context.go('/');
@@ -82,6 +95,248 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       context.go('/profile-setup');
     }
+  }
+
+  void _showApprovalPendingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.hourglass_top_rounded, color: AppColors.gold, size: 40),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Pending Approval',
+                style: AppTextStyles.heading.copyWith(fontSize: 20, color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Your merchant account is still being reviewed by admin. You will be notified once approved.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.body.copyWith(color: Colors.grey[400], height: 1.5),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.teal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showErrorDialog(String title, String message, IconData icon, Color color) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 40),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                title,
+                style: AppTextStyles.heading.copyWith(fontSize: 20, color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.body.copyWith(color: Colors.grey[400], height: 1.5),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.teal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Terms of Service ────────────────────────────────────────────
+
+  void _showTermsDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Terms of Service',
+                style: AppTextStyles.heading.copyWith(fontSize: 20, color: Colors.white),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 300,
+                child: SingleChildScrollView(
+                  child: Text(
+                    'Welcome to SugoBay!\n\n'
+                    'By using SugoBay, you agree to the following terms:\n\n'
+                    '1. Account Responsibility\n'
+                    'You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.\n\n'
+                    '2. Service Usage\n'
+                    'SugoBay provides food delivery and errand services ("Pahapit") within Ubay, Bohol. You agree to use the service only for lawful purposes.\n\n'
+                    '3. Orders & Payments\n'
+                    'All orders are subject to merchant availability. Prices displayed include the item cost; delivery fees are calculated separately. Payment must be completed as agreed.\n\n'
+                    '4. Cancellation & Refunds\n'
+                    'Orders may be cancelled before the rider picks up the item. Refund policies depend on the stage of the order.\n\n'
+                    '5. Rider & Merchant Terms\n'
+                    'Riders and merchants must comply with SugoBay operational guidelines. Merchant accounts require admin approval before activation.\n\n'
+                    '6. Privacy\n'
+                    'We collect and use your personal data (name, email, phone, location) to provide and improve our services. Your data is stored securely and not shared with third parties without consent.\n\n'
+                    '7. Limitation of Liability\n'
+                    'SugoBay acts as a platform connecting customers, merchants, and riders. We are not liable for the quality of food or items delivered.\n\n'
+                    '8. Changes\n'
+                    'We may update these terms at any time. Continued use of the app constitutes acceptance of the updated terms.\n\n'
+                    'For questions, contact us through the app.',
+                    style: AppTextStyles.body.copyWith(color: Colors.grey[400], height: 1.6, fontSize: 13),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.teal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── About ──────────────────────────────────────────────────────
+
+  void _showAboutDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset('assets/images/logo.png', width: 140, fit: BoxFit.contain),
+              const SizedBox(height: 16),
+              Text(
+                'Version ${AppConstants.version}',
+                style: AppTextStyles.caption.copyWith(color: Colors.grey[500]),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'SugoBay is a food delivery and errand service platform built for the people of Ubay, Bohol. '
+                'Order food from local merchants or request "Pahapit" errands — we\'ll handle the rest!',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.body.copyWith(color: Colors.grey[400], height: 1.5, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Developed by',
+                      style: AppTextStyles.caption.copyWith(color: Colors.grey[600], fontSize: 11),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Jecu Cutanda',
+                      style: AppTextStyles.subheading.copyWith(
+                        color: AppColors.gold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.teal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ─── Google Sign In ───────────────────────────────────────────────
@@ -159,7 +414,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // ─── Email Sign In / Sign Up ──────────────────────────────────────
+  // ─── Email Sign In ─────────────────────────────────────────────────
 
   Future<void> _signInWithEmail() async {
     if (!_emailFormKey.currentState!.validate()) return;
@@ -173,24 +428,66 @@ class _LoginScreenState extends State<LoginScreen> {
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
 
-      if (_isSignUp) {
-        await SupabaseService.auth.signUp(
-          email: email,
-          password: password,
-        );
-        if (!mounted) return;
-        showSugoBaySnackBar(context, 'Account created! Check email for verification.');
-      } else {
-        await SupabaseService.auth.signInWithPassword(
-          email: email,
-          password: password,
-        );
-      }
+      await SupabaseService.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
 
       await _handleAuthSuccess();
     } on AuthException catch (e) {
       if (!mounted) return;
-      showSugoBaySnackBar(context, e.message, isError: true);
+      if (e.message.toLowerCase().contains('invalid') ||
+          e.message.toLowerCase().contains('not found')) {
+        showSugoBaySnackBar(
+          context,
+          'No account found. Please sign up first.',
+          isError: true,
+        );
+      } else if (e.message.toLowerCase().contains('email not confirmed')) {
+        // Check if this is a merchant via an RPC function (bypasses RLS)
+        final email = _emailController.text.trim();
+        String? role;
+        bool? isApproved;
+
+        try {
+          final res = await SupabaseService.client
+              .rpc('get_role_by_email', params: {'lookup_email': email});
+          if (res is Map) {
+            role = res['role'] as String?;
+            isApproved = res['is_approved'] as bool?;
+          } else if (res is String) {
+            // Old function format — just role string
+            role = res;
+          }
+        } catch (_) {
+          // Function may not exist yet — fall through
+        }
+
+        if (!mounted) return;
+        if (role == 'merchant') {
+          if (isApproved == true) {
+            // Merchant is approved but email still not confirmed —
+            // this shouldn't happen after admin fix, but handle gracefully
+            _showErrorDialog(
+              'Account Issue',
+              'Your merchant account is approved but there was a sign-in issue. Please contact support or try again.',
+              Icons.warning_amber_rounded,
+              AppColors.gold,
+            );
+          } else {
+            _showApprovalPendingDialog();
+          }
+        } else {
+          _showErrorDialog(
+            'Email Not Confirmed',
+            'Please confirm your email before signing in. Check your inbox for a confirmation link.',
+            Icons.email_outlined,
+            AppColors.coral,
+          );
+        }
+      } else {
+        showSugoBaySnackBar(context, e.message, isError: true);
+      }
     } catch (e) {
       if (!mounted) return;
       showSugoBaySnackBar(context, 'Error: $e', isError: true);
@@ -233,28 +530,15 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 30),
               // Logo
-              Image.asset('assets/images/logo.png', width: 120, height: 120),
-              const SizedBox(height: 16),
-              Text(
-                AppConstants.appName,
-                style: AppTextStyles.heading.copyWith(
-                  fontSize: 28,
-                  color: AppColors.teal,
-                ),
+              Image.asset(
+                'assets/images/logo.png',
+                width: 200,
+                fit: BoxFit.contain,
               ),
-              const SizedBox(height: 6),
-              Text(AppConstants.tagline, style: AppTextStyles.caption),
               const SizedBox(height: 40),
 
               // ─── Social Buttons ─────────────────────────────────
-              _buildSocialButton(
-                label: 'Continue with Google',
-                icon: Icons.g_mobiledata_rounded,
-                color: Colors.white,
-                textColor: Colors.black87,
-                isLoading: _isLoading && _loadingMethod == 'google',
-                onPressed: _isLoading ? null : _signInWithGoogle,
-              ),
+              _buildGoogleButton(),
               const SizedBox(height: 12),
               _buildSocialButton(
                 label: 'Continue with Facebook',
@@ -305,6 +589,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         hint: 'you@example.com',
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
+                        textCapitalization: TextCapitalization.none,
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) return 'Email required';
                           if (!v.contains('@')) return 'Invalid email';
@@ -317,6 +602,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         hint: 'Enter password',
                         controller: _passwordController,
                         obscureText: true,
+                        textCapitalization: TextCapitalization.none,
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) return 'Password required';
                           if (v.length < 6) return 'Min 6 characters';
@@ -325,21 +611,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
                       SugoBayButton(
-                        text: _isSignUp ? 'Sign Up' : 'Sign In',
+                        text: 'Sign In',
                         onPressed: _signInWithEmail,
                         isLoading: _isLoading && _loadingMethod == 'email',
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () => setState(() => _isSignUp = !_isSignUp),
-                        child: Text(
-                          _isSignUp
-                              ? 'Already have an account? Sign In'
-                              : "Don't have an account? Sign Up",
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.teal,
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -373,6 +647,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         hint: '9XX XXX XXXX',
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
+                        textCapitalization: TextCapitalization.none,
                         prefix: Container(
                           padding: const EdgeInsets.only(left: 14, right: 8),
                           alignment: Alignment.center,
@@ -425,15 +700,131 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
+              // ─── Sign Up Link ──────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Don't have an account? ",
+                    style: AppTextStyles.caption,
+                  ),
+                  GestureDetector(
+                    onTap: () => context.push('/signup'),
+                    child: Text(
+                      'Sign Up',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.teal,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // ─── Terms & About ───────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: () => _showTermsDialog(),
+                    child: Text(
+                      'Terms of Service',
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 11,
+                        color: AppColors.teal,
+                        decoration: TextDecoration.underline,
+                        decorationColor: AppColors.teal,
+                      ),
+                    ),
+                  ),
+                  Text('  •  ', style: AppTextStyles.caption.copyWith(fontSize: 11)),
+                  GestureDetector(
+                    onTap: () => _showAboutDialog(),
+                    child: Text(
+                      'About',
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 11,
+                        color: AppColors.teal,
+                        decoration: TextDecoration.underline,
+                        decorationColor: AppColors.teal,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
               Text(
-                'By continuing, you agree to our Terms of Service',
-                style: AppTextStyles.caption.copyWith(fontSize: 11),
-                textAlign: TextAlign.center,
+                'Powered by Jecu Cutanda',
+                style: AppTextStyles.caption.copyWith(
+                  fontSize: 10,
+                  color: Colors.white30,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'v${AppConstants.version}',
+                style: AppTextStyles.caption.copyWith(
+                  fontSize: 10,
+                  color: Colors.white24,
+                ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ─── Google Button with proper "G" logo ─────────────────────────
+  Widget _buildGoogleButton() {
+    final isLoading = _isLoading && _loadingMethod == 'google';
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _signInWithGoogle,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        child: isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.black87,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Custom Google "G" logo
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CustomPaint(painter: _GoogleLogoPainter()),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Continue with Google',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -478,7 +869,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Icon(icon, size: 24),
                   const SizedBox(width: 10),
                   Text(label,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                       )),
@@ -487,4 +878,89 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+// Custom painter for the Google "G" logo with proper brand colors
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double w = size.width;
+    final double h = size.height;
+    final double cx = w / 2;
+    final double cy = h / 2;
+    final double r = w * 0.45;
+
+    // Blue arc (top-right)
+    final bluePaint = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.18
+      ..strokeCap = StrokeCap.butt;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset(cx, cy), radius: r),
+      -0.9, // start angle
+      1.8,  // sweep angle
+      false,
+      bluePaint,
+    );
+
+    // Green arc (bottom-right)
+    final greenPaint = Paint()
+      ..color = const Color(0xFF34A853)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.18
+      ..strokeCap = StrokeCap.butt;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset(cx, cy), radius: r),
+      0.9,
+      1.2,
+      false,
+      greenPaint,
+    );
+
+    // Yellow arc (bottom-left)
+    final yellowPaint = Paint()
+      ..color = const Color(0xFFFBBC05)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.18
+      ..strokeCap = StrokeCap.butt;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset(cx, cy), radius: r),
+      2.1,
+      1.0,
+      false,
+      yellowPaint,
+    );
+
+    // Red arc (top-left)
+    final redPaint = Paint()
+      ..color = const Color(0xFFEA4335)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.18
+      ..strokeCap = StrokeCap.butt;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset(cx, cy), radius: r),
+      3.1,
+      1.35,
+      false,
+      redPaint,
+    );
+
+    // Horizontal bar of the "G"
+    final barPaint = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRect(
+      Rect.fromLTWH(cx, cy - w * 0.08, r + w * 0.05, w * 0.16),
+      barPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

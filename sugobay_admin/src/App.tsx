@@ -10,11 +10,15 @@ import Revenue from './pages/Revenue'
 import Complaints from './pages/Complaints'
 import Announcements from './pages/Announcements'
 import Settings from './pages/Settings'
+import EmailConfirmed from './pages/EmailConfirmed'
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public page — no sidebar */}
+        <Route path="/email-confirmed" element={<EmailConfirmed />} />
+
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/food-orders" element={<FoodOrders />} />

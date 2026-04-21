@@ -471,8 +471,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final deliveryFee = (_order!['delivery_fee'] ?? 0).toDouble();
     final address = _order!['delivery_address'] ?? 'No address';
     final notes = _order!['notes'] ?? '';
-    final merchantName = _merchant?['business_name'] ?? 'Unknown';
-    final customerName = _customer?['full_name'] ?? 'Customer';
+    final merchantName = _merchant?['shop_name'] ?? 'Unknown';
+    final customerName = _customer?['name'] ?? 'Customer';
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -738,7 +738,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final actualAmountSpent =
         (_pahapitRequest!['actual_amount_spent'] ?? 0).toDouble();
     final totalAmount = (_pahapitRequest!['total_amount'] ?? 0).toDouble();
-    final customerName = _customer?['full_name'] ?? 'Customer';
+    final customerName = _customer?['name'] ?? 'Customer';
     final customerPhone = _customer?['phone'] ?? '';
     final deliveryAddress =
         _customer?['address'] ?? _pahapitRequest!['delivery_address'] ?? 'No address';

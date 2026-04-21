@@ -102,28 +102,28 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
 
     // Available food orders (pending or ready_for_pickup, no rider assigned)
     final availableFood = await SupabaseService.orders()
-        .select('*, merchants(business_name)')
+        .select('*, merchants(shop_name)')
         .or('status.eq.pending,status.eq.ready_for_pickup')
         .isFilter('rider_id', null)
         .order('created_at', ascending: false);
 
     // Available pahapit requests (pending, no rider assigned)
     final availablePahapit = await SupabaseService.pahapitRequests()
-        .select('*, users(full_name)')
+        .select('*, users(name)')
         .eq('status', 'pending')
         .isFilter('rider_id', null)
         .order('created_at', ascending: false);
 
     // My active food orders
     final myFood = await SupabaseService.orders()
-        .select('*, merchants(business_name)')
+        .select('*, merchants(shop_name)')
         .eq('rider_id', userId)
         .not('status', 'in', '(delivered,cancelled)')
         .order('created_at', ascending: false);
 
     // My active pahapit jobs
     final myPahapit = await SupabaseService.pahapitRequests()
-        .select('*, users(full_name)')
+        .select('*, users(name)')
         .eq('rider_id', userId)
         .not('status', 'in', '(completed,cancelled)')
         .order('created_at', ascending: false);
@@ -463,7 +463,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
 
   Widget _buildFoodJobCard(Map<String, dynamic> order, {bool mine = false}) {
     final merchantName =
-        order['merchants']?['business_name'] ?? 'Unknown Merchant';
+        order['merchants']?['shop_name'] ?? 'Unknown Merchant';
     final status = order['status'] ?? 'pending';
     final total = (order['total_amount'] ?? 0).toDouble();
     final deliveryFee = (order['delivery_fee'] ?? 0).toDouble();
@@ -705,7 +705,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   // ─── Profile Tab ─────────────────────────────────────────────────────
 
   Widget _buildProfileTab() {
-    final name = _profile?['full_name'] ?? 'Rider';
+    final name = _profile?['name'] ?? 'Rider';
     final phone = _profile?['phone'] ?? '';
 
     return ListView(

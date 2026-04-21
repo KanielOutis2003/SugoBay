@@ -19,7 +19,19 @@ export default function Merchants() {
   }
 
   async function approve(id: string) {
-    await supabase.from('merchants').update({ is_approved: true }).eq('id', id)
+    // Get the merchant's user_id to confirm their email
+    const { data: merchant } = await supabase.from('merchants').select('user_id').eq('id', id).single()
+
+    // Approve the merchant
+    await supabase.from('merchants').update({ is_approved: true, is_active: true }).eq('id', id)
+
+    // Confirm their email in auth.users so they can sign in
+    if (merchant?.user_id) {
+      await supabase.auth.admin.updateUserById(merchant.user_id, {
+        email_confirm: true,
+      })
+    }
+
     loadMerchants()
   }
 

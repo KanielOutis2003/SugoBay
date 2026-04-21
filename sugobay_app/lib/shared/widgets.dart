@@ -68,6 +68,7 @@ class SugoBayTextField extends StatelessWidget {
   final void Function(String)? onChanged;
   final Widget? prefix;
   final Widget? suffix;
+  final TextCapitalization textCapitalization;
 
   const SugoBayTextField({
     super.key,
@@ -81,6 +82,7 @@ class SugoBayTextField extends StatelessWidget {
     this.onChanged,
     this.prefix,
     this.suffix,
+    this.textCapitalization = TextCapitalization.sentences,
   });
 
   @override
@@ -97,6 +99,7 @@ class SugoBayTextField extends StatelessWidget {
           maxLines: maxLines,
           validator: validator,
           onChanged: onChanged,
+          textCapitalization: textCapitalization,
           style: const TextStyle(color: AppColors.white),
           decoration: InputDecoration(
             hintText: hint,

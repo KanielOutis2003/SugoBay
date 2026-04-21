@@ -84,35 +84,24 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.primaryBg, AppColors.darkGrey],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
+        color: AppColors.primaryBg,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset('assets/images/logo.png', width: 160, height: 160),
-              const SizedBox(height: 24),
-              Text(
-                AppConstants.appName,
-                style: AppTextStyles.heading.copyWith(
-                  fontSize: 32,
-                  color: AppColors.teal,
-                ),
+              // Logo
+              Image.asset(
+                'assets/images/logo.png',
+                width: 220,
+                fit: BoxFit.contain,
               ),
-              const SizedBox(height: 8),
-              Text(AppConstants.tagline, style: AppTextStyles.caption),
-              const SizedBox(height: 40),
+              const SizedBox(height: 48),
               const SizedBox(
                 width: 28,
                 height: 28,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: AppColors.teal,
+                  color: AppColors.gold,
                 ),
               ),
             ],

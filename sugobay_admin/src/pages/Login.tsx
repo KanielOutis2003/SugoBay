@@ -48,6 +48,7 @@ export default function Login() {
     <div className="min-h-screen bg-[#1A1C20] flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-[#23252A] rounded-xl shadow-xl border border-[#2D2F34] p-8">
         <div className="text-center mb-8">
+          <img src="/icon.png" alt="SugoBay" className="w-20 h-20 rounded-full mx-auto mb-4 shadow-lg" />
           <h1 className="text-2xl font-bold bg-gradient-to-r from-[#2A9D8F] to-[#E76F51] bg-clip-text text-transparent">
             SugoBay Admin
           </h1>

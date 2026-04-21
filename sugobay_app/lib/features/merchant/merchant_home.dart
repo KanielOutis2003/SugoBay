@@ -95,14 +95,14 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
     try {
       // Active orders
       final activeRes = await SupabaseService.orders()
-          .select('*, users!orders_customer_id_fkey(full_name, phone)')
+          .select('*, users!orders_customer_id_fkey(name, phone)')
           .eq('merchant_id', _merchantId)
           .not('status', 'in', '("delivered","cancelled")')
           .order('created_at', ascending: false);
 
       // History orders
       final historyRes = await SupabaseService.orders()
-          .select('*, users!orders_customer_id_fkey(full_name, phone)')
+          .select('*, users!orders_customer_id_fkey(name, phone)')
           .eq('merchant_id', _merchantId)
           .inFilter('status', ['delivered', 'cancelled'])
           .order('created_at', ascending: false)
@@ -121,7 +121,7 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
       final todayStart =
           DateTime.now().toUtc().toIso8601String().substring(0, 10);
       final todayOrders = await SupabaseService.orders()
-          .select('total')
+          .select('total_amount')
           .eq('merchant_id', _merchantId)
           .gte('created_at', '${todayStart}T00:00:00')
           .not('status', 'eq', 'cancelled');
@@ -133,7 +133,7 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
           _todayOrdersCount = todayOrders.length;
           _todayRevenue = todayOrders.fold<double>(
             0,
-            (sum, o) => sum + (o['total'] ?? 0).toDouble(),
+            (sum, o) => sum + (o['total_amount'] ?? 0).toDouble(),
           );
         });
       }
@@ -214,8 +214,8 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
     final shortId =
         orderId.length > 6 ? orderId.substring(orderId.length - 6) : orderId;
     final customer = order['users'];
-    final customerName = customer?['full_name'] ?? 'Customer';
-    final total = (order['total'] ?? 0).toDouble();
+    final customerName = customer?['name'] ?? 'Customer';
+    final total = (order['total_amount'] ?? 0).toDouble();
     final status = order['status'] ?? 'pending';
     final createdAt = order['created_at'];
 

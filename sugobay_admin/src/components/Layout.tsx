@@ -23,10 +23,15 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-64 bg-[#23252A] border-r border-[#2D2F34] flex flex-col">
         <div className="p-6 border-b border-[#2D2F34]">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-[#2A9D8F] to-[#E76F51] bg-clip-text text-transparent">
-            SugoBay Admin
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">Sugo para sa tanan sa Ubay</p>
+          <div className="flex items-center gap-3">
+            <img src="/icon.png" alt="SugoBay" className="w-10 h-10 rounded-full" />
+            <div>
+              <h1 className="text-lg font-bold bg-gradient-to-r from-[#2A9D8F] to-[#E76F51] bg-clip-text text-transparent">
+                SugoBay Admin
+              </h1>
+              <p className="text-xs text-gray-500">Sugo para sa tanan sa Ubay</p>
+            </div>
+          </div>
         </div>
         <nav className="flex-1 overflow-y-auto py-4">
           {navItems.map(({ path, label, icon: Icon }) => (

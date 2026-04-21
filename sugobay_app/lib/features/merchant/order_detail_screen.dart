@@ -46,7 +46,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
     try {
       final order = await SupabaseService.orders()
-          .select('*, users!orders_customer_id_fkey(full_name, phone)')
+          .select('*, users!orders_customer_id_fkey(name, phone)')
           .eq('id', widget.orderId)
           .single();
 
@@ -275,10 +275,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final shortId =
         orderId.length > 6 ? orderId.substring(orderId.length - 6) : orderId;
     final status = _order!['status'] ?? '';
-    final total = (_order!['total'] ?? 0).toDouble();
+    final total = (_order!['total_amount'] ?? 0).toDouble();
     final deliveryAddress = _order!['delivery_address'] ?? 'No address';
     final notes = _order!['notes'] as String?;
-    final customerName = _customer?['full_name'] ?? 'Customer';
+    final customerName = _customer?['name'] ?? 'Customer';
     final customerPhone = _customer?['phone'] ?? '';
 
     return Scaffold(

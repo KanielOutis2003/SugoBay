@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'supabase_client.dart';
 import '../features/auth/login_screen.dart';
+import '../features/auth/signup_screen.dart';
 import '../features/auth/otp_screen.dart';
 import '../features/auth/profile_setup_screen.dart';
 import '../features/customer/customer_home.dart';
@@ -25,6 +26,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/signup', builder: (_, __) => const SignupScreen()),
       GoRoute(
         path: '/otp',
         builder: (_, state) => OtpScreen(phone: state.extra as String),
@@ -90,6 +92,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) async {
       final isLoggedIn = SupabaseService.currentUser != null;
       final isAuthRoute = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/signup' ||
           state.matchedLocation == '/otp' ||
           state.matchedLocation == '/profile-setup' ||
           state.matchedLocation == '/';
