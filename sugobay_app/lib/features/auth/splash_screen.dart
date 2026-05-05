@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants.dart';
 import '../../core/supabase_client.dart';
 
@@ -11,11 +12,27 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animController;
+  late final Animation<double> _fadeAnim;
+
   @override
   void initState() {
     super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeIn);
+    _animController.forward();
     _checkAuthAndRoute();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkAuthAndRoute() async {
@@ -25,7 +42,10 @@ class _SplashScreenState extends State<SplashScreen> {
     final user = SupabaseService.currentUser;
 
     if (user == null) {
-      context.go('/login');
+      final prefs = await SharedPreferences.getInstance();
+      final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+      if (!mounted) return;
+      context.go(hasSeenOnboarding ? '/login' : '/onboarding');
       return;
     }
 
@@ -86,25 +106,37 @@ class _SplashScreenState extends State<SplashScreen> {
         height: double.infinity,
         color: AppColors.primaryBg,
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Logo
-              Image.asset(
-                'assets/images/logo.png',
-                width: 220,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(height: 48),
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: AppColors.gold,
+          child: FadeTransition(
+            opacity: _fadeAnim,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Logo
+                Image.asset(
+                  'assets/images/logo.png',
+                  width: 220,
+                  fit: BoxFit.contain,
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                Text(
+                  AppConstants.tagline,
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 13,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 48),
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.gold,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
