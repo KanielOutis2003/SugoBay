@@ -315,7 +315,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
           'lng': position.longitude,
           'is_online': true,
           'updated_at': DateTime.now().toIso8601String(),
-        });
+        }, onConflict: 'rider_id');
 
         _startGpsTracking();
       } else {
