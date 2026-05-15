@@ -24,6 +24,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   int _currentTab = 0;
   bool _isOnline = false;
   bool _isLoading = true;
+  bool _isToggling = false;
   Timer? _gpsTimer;
   double? _lastLat;
   double? _lastLng;
@@ -276,8 +277,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   }
 
   Future<void> _toggleOnline(bool value) async {
+    if (_isToggling) return;
     final userId = SupabaseService.currentUserId;
     if (userId == null) return;
+
+    if (mounted) setState(() => _isToggling = true);
 
     try {
       if (value) {
@@ -335,6 +339,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
       if (mounted) {
         showSugoBaySnackBar(context, 'Error: $e', isError: true);
       }
+    } finally {
+      if (mounted) setState(() => _isToggling = false);
     }
   }
 
@@ -413,16 +419,40 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
         actions: [
           Row(
             children: [
-              Text(
-                _isOnline ? 'Online' : 'Offline',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  color: _isOnline ? SColors.success : SColors.error,
+              if (_isToggling)
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: SColors.gold,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _isOnline ? 'Going offline…' : 'Going online…',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: SColors.gold,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                )
+              else
+                Text(
+                  _isOnline ? 'Online' : 'Offline',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    color: _isOnline ? SColors.success : SColors.error,
+                  ),
                 ),
-              ),
               Switch(
                 value: _isOnline,
-                onChanged: _toggleOnline,
+                onChanged: _isToggling ? null : _toggleOnline,
                 activeThumbColor: SColors.success,
                 inactiveThumbColor: SColors.error,
               ),

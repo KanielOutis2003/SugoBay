@@ -1,6 +1,30 @@
 import { useEffect, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import { exportToCsv } from '../lib/csvExport'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+
+// Teal rider dot icon
+const riderIcon = new L.DivIcon({
+  html: '<div style="background:#2A9D8F;width:28px;height:28px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.4)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L19 21L12 17L5 21L12 2Z"/></svg></div>',
+  className: '',
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+})
+
+// Region definitions
+const REGIONS: Record<string, { center: [number, number]; zoom: number; label: string }> = {
+  ubay:  { center: [10.0581, 124.0474], zoom: 14, label: 'Ubay, Bohol' },
+  bohol: { center: [9.8500,  124.1435], zoom: 11, label: 'Bohol' },
+  cebu:  { center: [10.3157, 123.8854], zoom: 11, label: 'Cebu' },
+}
+
+function FlyTo({ center, zoom }: { center: [number, number]; zoom: number }) {
+  const map = useMap()
+  useEffect(() => { map.flyTo(center, zoom, { duration: 1.2 }) }, [center, zoom])
+  return null
+}
 
 interface Rider {
   id: string
@@ -35,6 +59,7 @@ function getStrikeInfo(count: number) {
 export default function Riders() {
   const [riders, setRiders] = useState<Rider[]>([])
   const [loading, setLoading] = useState(true)
+  const [mapRegion, setMapRegion] = useState<keyof typeof REGIONS>('ubay')
   const [shiftModalRider, setShiftModalRider] = useState<Rider | null>(null)
   const [shiftData, setShiftData] = useState<ShiftData[]>([])
   const [shiftLoading, setShiftLoading] = useState(false)
@@ -205,6 +230,64 @@ export default function Riders() {
           <button onClick={() => exportToCsv('riders', riders.map(r => ({ ...r, location: r.location ? `${r.location.lat},${r.location.lng}` : '' })))} className="px-4 py-2 bg-[#23252A] text-gray-300 rounded-lg text-sm border border-[#2D2F34] hover:bg-[#2D2F34]">Export CSV</button>
           <button onClick={loadRiders} className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg text-sm">Refresh</button>
         </div>
+      </div>
+
+      {/* Live Rider Map */}
+      <div className="bg-[#23252A] rounded-xl border border-[#2D2F34] mb-6 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#2D2F34]">
+          <div className="flex items-center gap-2">
+            <span className="text-white font-semibold text-sm">Live Rider Map</span>
+            <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+              {riders.filter(r => r.location?.is_online).length} online
+            </span>
+          </div>
+          {/* Region filter */}
+          <div className="flex gap-1">
+            {(Object.keys(REGIONS) as Array<keyof typeof REGIONS>).map(key => (
+              <button
+                key={key}
+                onClick={() => setMapRegion(key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  mapRegion === key
+                    ? 'bg-[#2A9D8F] text-white'
+                    : 'bg-[#1A1C20] text-gray-400 hover:text-white border border-[#2D2F34]'
+                }`}
+              >
+                {REGIONS[key].label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ height: 320 }}>
+          <MapContainer
+            center={REGIONS[mapRegion].center}
+            zoom={REGIONS[mapRegion].zoom}
+            style={{ height: '100%', width: '100%' }}
+            zoomControl={true}
+          >
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+            />
+            <FlyTo center={REGIONS[mapRegion].center} zoom={REGIONS[mapRegion].zoom} />
+            {riders
+              .filter(r => r.location?.is_online && r.location.lat && r.location.lng)
+              .map(r => (
+                <Marker key={r.id} position={[r.location!.lat, r.location!.lng]} icon={riderIcon}>
+                  <Popup>
+                    <div style={{ fontFamily: 'sans-serif', minWidth: 120 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 4 }}>{r.name}</div>
+                      <div style={{ color: '#2A9D8F', fontSize: 12 }}>● Online</div>
+                      <div style={{ color: '#888', fontSize: 11, marginTop: 2 }}>{r.phone}</div>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+          </MapContainer>
+        </div>
+        {riders.filter(r => r.location?.is_online).length === 0 && !loading && (
+          <p className="text-gray-500 text-xs text-center py-2">No riders currently online</p>
+        )}
       </div>
 
       {loading ? <p className="text-gray-500">Loading...</p> : (
