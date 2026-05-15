@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabaseAdmin } from '../lib/supabase'
 import type { AppSetting } from '../lib/supabase'
 
 export default function Settings() {
@@ -12,7 +12,7 @@ export default function Settings() {
 
   async function loadSettings() {
     setLoading(true)
-    const { data } = await supabase.from('app_settings').select('*').order('key')
+    const { data } = await supabaseAdmin.from('app_settings').select('*').order('key')
     setSettings(data || [])
     const vals: Record<string, string> = {}
     for (const s of (data || [])) vals[s.key] = s.value
@@ -22,7 +22,7 @@ export default function Settings() {
 
   async function saveSetting(key: string) {
     setSaving(key)
-    await supabase.from('app_settings').update({
+    await supabaseAdmin.from('app_settings').update({
       value: editValues[key],
       updated_at: new Date().toISOString(),
     }).eq('key', key)

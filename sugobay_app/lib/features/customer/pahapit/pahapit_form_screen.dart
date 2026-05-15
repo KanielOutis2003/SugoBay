@@ -1,9 +1,11 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants.dart';
 import '../../../core/supabase_client.dart';
+import '../../../core/theme.dart';
 import '../../../shared/widgets.dart';
 import '../../../shared/osm_service.dart';
 import '../../../shared/delivery_fee.dart';
@@ -71,41 +73,31 @@ class _PahapitFormScreenState extends State<PahapitFormScreen> {
     setState(() => _isCalculatingFee = true);
 
     try {
-      // 1. Geocode store
       final storeCoords = await OSMService.geocode(storeName);
       if (storeCoords == null) {
         if (mounted) {
-          showSugoBaySnackBar(
-            context,
-            'Could not find store location',
-            isError: true,
-          );
+          showSugoBaySnackBar(context, 'Could not find store location',
+              isError: true);
         }
         return;
       }
       _storeLat = storeCoords.latitude;
       _storeLng = storeCoords.longitude;
 
-      // 2. Geocode delivery
       final deliveryCoords = await OSMService.geocode(deliveryAddress);
       if (deliveryCoords == null) {
         if (mounted) {
           showSugoBaySnackBar(
-            context,
-            'Could not find delivery address location',
-            isError: true,
-          );
+              context, 'Could not find delivery address location',
+              isError: true);
         }
         return;
       }
       _deliveryLat = deliveryCoords.latitude;
       _deliveryLng = deliveryCoords.longitude;
 
-      // 3. Get OSRM distance
-      final distance = await OSMService.getRouteDistance(
-        storeCoords,
-        deliveryCoords,
-      );
+      final distance =
+          await OSMService.getRouteDistance(storeCoords, deliveryCoords);
 
       if (mounted) {
         setState(() {
@@ -113,11 +105,8 @@ class _PahapitFormScreenState extends State<PahapitFormScreen> {
             _distanceKm = distance;
             final fee = DeliveryFeeCalculator.calculate(distance);
             if (fee < 0) {
-              showSugoBaySnackBar(
-                context,
-                'Address is too far for delivery',
-                isError: true,
-              );
+              showSugoBaySnackBar(context, 'Address is too far for delivery',
+                  isError: true);
               _deliveryFee = AppConstants.baseDeliveryFee;
             } else {
               _deliveryFee = fee;
@@ -128,9 +117,7 @@ class _PahapitFormScreenState extends State<PahapitFormScreen> {
     } catch (e) {
       debugPrint('Error calculating fee: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isCalculatingFee = false);
-      }
+      if (mounted) setState(() => _isCalculatingFee = false);
     }
   }
 
@@ -163,7 +150,6 @@ class _PahapitFormScreenState extends State<PahapitFormScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      // 1. Final geocode/fee calculation if coords are missing
       if (_storeLat == null || _deliveryLat == null) {
         final storeName = _storeNameController.text.trim();
         final deliveryAddress = _addressController.text.trim();
@@ -177,10 +163,8 @@ class _PahapitFormScreenState extends State<PahapitFormScreen> {
           _deliveryLat = deliveryCoords.latitude;
           _deliveryLng = deliveryCoords.longitude;
 
-          final distance = await OSMService.getRouteDistance(
-            storeCoords,
-            deliveryCoords,
-          );
+          final distance =
+              await OSMService.getRouteDistance(storeCoords, deliveryCoords);
           if (distance != null) {
             _deliveryFee = DeliveryFeeCalculator.calculate(distance);
           }
@@ -189,7 +173,6 @@ class _PahapitFormScreenState extends State<PahapitFormScreen> {
 
       String? imageUrl;
 
-      // Upload photo if provided
       if (_itemPhoto != null && _photoBytes != null) {
         final fileName =
             'pahapit/${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -201,7 +184,8 @@ class _PahapitFormScreenState extends State<PahapitFormScreen> {
         );
       }
 
-      final budgetLimit = double.tryParse(_budgetController.text.trim()) ?? 0;
+      final budgetLimit =
+          double.tryParse(_budgetController.text.trim()) ?? 0;
 
       final res = await SupabaseService.pahapitRequests()
           .insert({
@@ -212,9 +196,10 @@ class _PahapitFormScreenState extends State<PahapitFormScreen> {
             'store_lng': _storeLng,
             'items_description': _itemsDescController.text.trim(),
             'budget_limit': budgetLimit,
-            'special_instructions': _instructionsController.text.trim().isEmpty
-                ? null
-                : _instructionsController.text.trim(),
+            'special_instructions':
+                _instructionsController.text.trim().isEmpty
+                    ? null
+                    : _instructionsController.text.trim(),
             'delivery_address': _addressController.text.trim(),
             'delivery_lat': _deliveryLat,
             'delivery_lng': _deliveryLng,
@@ -233,282 +218,364 @@ class _PahapitFormScreenState extends State<PahapitFormScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
-        showSugoBaySnackBar(context, 'Failed to submit: $e', isError: true);
+        showSugoBaySnackBar(context, 'Failed to submit: $e',
+            isError: true);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
+
     return Scaffold(
-      backgroundColor: AppColors.primaryBg,
-      appBar: AppBar(
-        backgroundColor: AppColors.primaryBg,
-        iconTheme: const IconThemeData(color: AppColors.white),
-        title: const Text(
-          'New Pahapit Request',
-          style: AppTextStyles.subheading,
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Store name
-              SugoBayTextField(
-                label: 'Store Name',
-                hint: 'e.g. Mercury Drug, Gaisano',
-                controller: _storeNameController,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-
-              // Store category
-              Text(
-                'Store Category',
-                style: AppTextStyles.body.copyWith(color: AppColors.gold),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.cardBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: const Border.fromBorderSide(
-                    BorderSide(color: AppColors.darkGrey),
-                  ),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _storeCategory,
-                    dropdownColor: AppColors.cardBg,
-                    isExpanded: true,
-                    style: const TextStyle(color: AppColors.white),
-                    items: _categories
-                        .map(
-                          (c) => DropdownMenuItem(
-                            value: c['value'],
-                            child: Text(c['label']!),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) setState(() => _storeCategory = v);
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Items description
-              SugoBayTextField(
-                label: 'Items Description',
-                hint: 'Describe what you need bought...',
-                controller: _itemsDescController,
-                maxLines: 4,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-
-              // Budget limit
-              SugoBayTextField(
-                label: 'Budget Limit',
-                hint: '0.00',
-                controller: _budgetController,
-                keyboardType: TextInputType.number,
-                prefix: const Padding(
-                  padding: EdgeInsets.only(left: 12),
-                  child: Text(
-                    '\u20B1',
-                    style: TextStyle(color: AppColors.gold, fontSize: 16),
-                  ),
-                ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Required';
-                  if (double.tryParse(v.trim()) == null)
-                    return 'Invalid amount';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Special instructions
-              SugoBayTextField(
-                label: 'Special Instructions (optional)',
-                hint: 'Any special requests or notes...',
-                controller: _instructionsController,
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-
-              // Item photo
-              Text(
-                'Item Photo (optional)',
-                style: AppTextStyles.body.copyWith(color: AppColors.gold),
-              ),
-              const SizedBox(height: 6),
-              GestureDetector(
-                onTap: _pickImage,
-                child: Container(
-                  width: double.infinity,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: AppColors.cardBg,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.darkGrey,
-                      style: BorderStyle.solid,
-                    ),
-                  ),
-                  child: _photoBytes != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.memory(
-                            _photoBytes!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                          ),
-                        )
-                      : const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.camera_alt,
-                              color: Colors.white38,
-                              size: 32,
-                            ),
-                            SizedBox(height: 6),
-                            Text(
-                              'Tap to add photo',
-                              style: TextStyle(
-                                color: Colors.white38,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Delivery address
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+      backgroundColor: c.bg,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Header ──
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
                 children: [
-                  Expanded(
-                    child: SugoBayTextField(
-                      label: 'Delivery Address',
-                      hint: 'Enter your full delivery address',
-                      controller: _addressController,
-                      prefix: const Icon(
-                        Icons.location_on,
-                        color: Colors.white54,
+                  GestureDetector(
+                    onTap: () {
+                      if (context.canPop()) context.pop();
+                    },
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: c.inputBg,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      child: Icon(Icons.arrow_back,
+                          color: c.textPrimary, size: 20),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    height: 56,
-                    child: TextButton(
-                      onPressed: _isCalculatingFee ? null : _calculateFee,
-                      style: TextButton.styleFrom(
-                        backgroundColor: AppColors.cardBg,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(color: AppColors.darkGrey),
-                        ),
-                      ),
-                      child: _isCalculatingFee
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppColors.teal,
-                              ),
-                            )
-                          : const Icon(Icons.refresh, color: AppColors.teal),
+                  const SizedBox(width: 14),
+                  Text(
+                    'New Pahapit Request',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: c.textPrimary,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+            ),
 
-              // Fee breakdown
-              SugoBayCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Estimated Fees',
-                      style: AppTextStyles.subheading.copyWith(fontSize: 15),
-                    ),
-                    const SizedBox(height: 10),
-                    _feeRow(
-                      'Errand Fee',
-                      '\u20B1${_errandFee.toStringAsFixed(2)}',
-                    ),
-                    const SizedBox(height: 4),
-                    _feeRow(
-                      'Delivery Fee${_distanceKm != null ? ' (${_distanceKm!.toStringAsFixed(1)} km)' : ''}',
-                      '\u20B1${_deliveryFee.toStringAsFixed(2)}',
-                    ),
-                    const Divider(color: AppColors.darkGrey, height: 16),
-                    _feeRow(
-                      'Est. Total Fees',
-                      '\u20B1${(_errandFee + _deliveryFee).toStringAsFixed(2)}',
-                      isBold: true,
-                    ),
-                  ],
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Store name
+                      SugoBayTextField(
+                        label: 'Store Name',
+                        hint: 'e.g. Mercury Drug, Gaisano',
+                        controller: _storeNameController,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Required'
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Store category
+                      Text(
+                        'Store Category',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: c.textSecondary,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: c.inputBg,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: c.border),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _storeCategory,
+                            dropdownColor: c.cardBg,
+                            isExpanded: true,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 15,
+                              color: c.textPrimary,
+                            ),
+                            icon: Icon(Icons.keyboard_arrow_down,
+                                color: c.textTertiary),
+                            items: _categories
+                                .map(
+                                  (cat) => DropdownMenuItem(
+                                    value: cat['value'],
+                                    child: Text(cat['label']!),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) {
+                                setState(() => _storeCategory = v);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Items description
+                      SugoBayTextField(
+                        label: 'Items Description',
+                        hint: 'Describe what you need bought...',
+                        controller: _itemsDescController,
+                        maxLines: 4,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Required'
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Budget limit
+                      SugoBayTextField(
+                        label: 'Budget Limit',
+                        hint: '0.00',
+                        controller: _budgetController,
+                        keyboardType: TextInputType.number,
+                        prefix: Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: Text(
+                            '\u20B1',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 16,
+                              color: SColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Required';
+                          }
+                          if (double.tryParse(v.trim()) == null) {
+                            return 'Invalid amount';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Special instructions
+                      SugoBayTextField(
+                        label: 'Special Instructions (optional)',
+                        hint: 'Any special requests or notes...',
+                        controller: _instructionsController,
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Item photo
+                      Text(
+                        'Item Photo (optional)',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: c.textSecondary,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: _pickImage,
+                        child: Container(
+                          width: double.infinity,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: c.inputBg,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: c.border),
+                          ),
+                          child: _photoBytes != null
+                              ? ClipRRect(
+                                  borderRadius:
+                                      BorderRadius.circular(14),
+                                  child: Image.memory(
+                                    _photoBytes!,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                  ),
+                                )
+                              : Column(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.camera_alt,
+                                        color: c.textTertiary,
+                                        size: 32),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Tap to add photo',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12,
+                                        color: c.textTertiary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Delivery address
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: SugoBayTextField(
+                              label: 'Delivery Address',
+                              hint: 'Enter your full delivery address',
+                              controller: _addressController,
+                              prefix: Icon(Icons.location_on,
+                                  color: c.textTertiary),
+                              validator: (v) =>
+                                  (v == null || v.trim().isEmpty)
+                                      ? 'Required'
+                                      : null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: 56,
+                            child: GestureDetector(
+                              onTap: _isCalculatingFee
+                                  ? null
+                                  : _calculateFee,
+                              child: Container(
+                                width: 56,
+                                decoration: BoxDecoration(
+                                  color: c.inputBg,
+                                  borderRadius:
+                                      BorderRadius.circular(14),
+                                  border: Border.all(color: c.border),
+                                ),
+                                child: Center(
+                                  child: _isCalculatingFee
+                                      ? SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child:
+                                              CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: SColors.primary,
+                                          ),
+                                        )
+                                      : Icon(Icons.refresh,
+                                          color: SColors.primary),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Fee breakdown
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: c.cardBg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: c.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Estimated Fees',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: c.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _feeRow(c, 'Errand Fee',
+                                '\u20B1${_errandFee.toStringAsFixed(2)}'),
+                            const SizedBox(height: 6),
+                            _feeRow(
+                              c,
+                              'Delivery Fee${_distanceKm != null ? ' (${_distanceKm!.toStringAsFixed(1)} km)' : ''}',
+                              '\u20B1${_deliveryFee.toStringAsFixed(2)}',
+                            ),
+                            Divider(color: c.divider, height: 20),
+                            _feeRow(
+                              c,
+                              'Est. Total Fees',
+                              '\u20B1${(_errandFee + _deliveryFee).toStringAsFixed(2)}',
+                              isBold: true,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Exact amount will be determined after purchase. COD only.',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          color: SColors.gold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Submit
+                      SugoBayButton(
+                        text: 'Submit Request',
+                        isLoading: _isSubmitting,
+                        onPressed: _submit,
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Exact amount will be determined after purchase. COD only.',
-                style: AppTextStyles.caption.copyWith(color: AppColors.gold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-
-              // Submit
-              SugoBayButton(
-                text: 'Submit Request',
-                isLoading: _isSubmitting,
-                onPressed: _submit,
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _feeRow(String label, String value, {bool isBold = false}) {
+  Widget _feeRow(SugoColors c, String label, String value,
+      {bool isBold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
-          style: isBold
-              ? AppTextStyles.body.copyWith(color: AppColors.white)
-              : AppTextStyles.body,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            color: isBold ? c.textPrimary : c.textSecondary,
+            fontWeight: isBold ? FontWeight.w600 : FontWeight.w400,
+          ),
         ),
         Text(
           value,
-          style: isBold
-              ? AppTextStyles.body.copyWith(
-                  color: AppColors.teal,
-                  fontWeight: FontWeight.bold,
-                )
-              : AppTextStyles.body,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            color: isBold ? SColors.primary : c.textSecondary,
+            fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
+          ),
         ),
       ],
     );

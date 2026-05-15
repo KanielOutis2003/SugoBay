@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/supabase_client.dart';
+import '../../../core/theme.dart';
 import '../../../shared/widgets.dart';
+import '../../../shared/announcements_banner.dart';
 
 class FoodTabView extends StatefulWidget {
   const FoodTabView({super.key});
@@ -90,21 +92,27 @@ class FoodTabViewState extends State<FoodTabView> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
+
     return Column(
       children: [
+        const AnnouncementsBanner(),
+
         // Search bar
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: TextField(
             controller: _searchController,
-            style: const TextStyle(color: AppColors.white),
+            style: GoogleFonts.plusJakartaSans(color: c.textPrimary, fontSize: 14),
+            cursorColor: SColors.primary,
             decoration: InputDecoration(
               hintText: 'Search restaurants...',
-              hintStyle: AppTextStyles.caption,
+              hintStyle:
+                  GoogleFonts.plusJakartaSans(fontSize: 13, color: c.textTertiary),
               prefixIcon:
-                  const Icon(Icons.search, color: Colors.white54, size: 20),
+                  Icon(Icons.search, color: c.textTertiary, size: 20),
               filled: true,
-              fillColor: AppColors.cardBg,
+              fillColor: c.inputBg,
               contentPadding: const EdgeInsets.symmetric(vertical: 0),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -112,12 +120,12 @@ class FoodTabViewState extends State<FoodTabView> {
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    const BorderSide(color: AppColors.darkGrey, width: 1),
+                borderSide: BorderSide(color: c.border, width: 1),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.teal, width: 2),
+                borderSide:
+                    const BorderSide(color: SColors.primary, width: 2),
               ),
             ),
           ),
@@ -141,13 +149,13 @@ class FoodTabViewState extends State<FoodTabView> {
                   setState(() => _selectedCategory = cat);
                   _applyFilters();
                 },
-                selectedColor: AppColors.teal,
-                backgroundColor: AppColors.cardBg,
+                selectedColor: SColors.primary,
+                backgroundColor: c.cardBg,
                 side: BorderSide(
-                  color: isSelected ? AppColors.teal : AppColors.darkGrey,
+                  color: isSelected ? SColors.primary : c.border,
                 ),
-                labelStyle: TextStyle(
-                  color: isSelected ? AppColors.white : Colors.white70,
+                labelStyle: GoogleFonts.plusJakartaSans(
+                  color: isSelected ? Colors.white : c.textSecondary,
                   fontSize: 13,
                   fontWeight:
                       isSelected ? FontWeight.w600 : FontWeight.normal,
@@ -160,17 +168,16 @@ class FoodTabViewState extends State<FoodTabView> {
         const SizedBox(height: 8),
 
         // Merchant list
-        Expanded(
-          child: _buildBody(),
-        ),
+        Expanded(child: _buildBody(c)),
       ],
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(SugoColors c) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.teal),
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: ShimmerList(count: 5, itemHeight: 88),
       );
     }
 
@@ -179,9 +186,12 @@ class FoodTabViewState extends State<FoodTabView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, color: AppColors.coral, size: 48),
+            const Icon(Icons.error_outline, color: SColors.coral, size: 48),
             const SizedBox(height: 12),
-            Text(_error!, style: AppTextStyles.body, textAlign: TextAlign.center),
+            Text(_error!,
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14, color: c.textSecondary),
+                textAlign: TextAlign.center),
             const SizedBox(height: 16),
             SugoBayButton(
               text: 'Retry',
@@ -201,8 +211,8 @@ class FoodTabViewState extends State<FoodTabView> {
     }
 
     return RefreshIndicator(
-      color: AppColors.teal,
-      backgroundColor: AppColors.cardBg,
+      color: SColors.primary,
+      backgroundColor: c.cardBg,
       onRefresh: _loadMerchants,
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -228,6 +238,7 @@ class _MerchantCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
     final name = merchant['shop_name'] ?? 'Unknown';
     final category = merchant['category'] ?? '';
     final rating = (merchant['rating'] ?? 0).toDouble();
@@ -242,10 +253,11 @@ class _MerchantCard extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: AppColors.darkGrey,
+              color: SColors.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.storefront, color: AppColors.teal, size: 28),
+            child: const Icon(Icons.storefront,
+                color: SColors.primary, size: 28),
           ),
           const SizedBox(width: 14),
           // Info
@@ -255,24 +267,27 @@ class _MerchantCard extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: AppTextStyles.subheading.copyWith(fontSize: 16),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: c.textPrimary,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Text(
-                      category,
-                      style: AppTextStyles.caption,
-                    ),
+                    Text(category,
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12, color: c.textTertiary)),
                     const SizedBox(width: 10),
-                    const Icon(Icons.star, color: AppColors.gold, size: 14),
+                    const Icon(Icons.star, color: SColors.gold, size: 14),
                     const SizedBox(width: 2),
                     Text(
                       rating.toStringAsFixed(1),
-                      style: AppTextStyles.caption
-                          .copyWith(color: AppColors.gold),
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12, color: SColors.gold),
                     ),
                   ],
                 ),
@@ -281,20 +296,21 @@ class _MerchantCard extends StatelessWidget {
           ),
           // Open/closed badge
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: isOpen
-                  ? AppColors.success.withAlpha(38)
-                  : AppColors.error.withAlpha(38),
+                  ? SColors.success.withAlpha(38)
+                  : SColors.error.withAlpha(38),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isOpen ? AppColors.success : AppColors.error,
+                color: isOpen ? SColors.success : SColors.error,
               ),
             ),
             child: Text(
               isOpen ? 'Open' : 'Closed',
-              style: TextStyle(
-                color: isOpen ? AppColors.success : AppColors.error,
+              style: GoogleFonts.plusJakartaSans(
+                color: isOpen ? SColors.success : SColors.error,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),

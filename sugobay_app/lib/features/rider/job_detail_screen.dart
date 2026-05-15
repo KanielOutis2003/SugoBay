@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/constants.dart';
 import '../../core/supabase_client.dart';
+import '../../core/theme.dart';
 import '../../shared/open_street_map.dart';
 import '../../shared/widgets.dart';
 
@@ -27,22 +29,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   bool _isLoading = true;
   bool _isActionLoading = false;
 
-  // Food order data
   Map<String, dynamic>? _order;
   List<Map<String, dynamic>> _orderItems = [];
   Map<String, dynamic>? _merchant;
   Map<String, dynamic>? _customer;
 
-  // Pahapit data
   Map<String, dynamic>? _pahapitRequest;
 
-  // Pahapit buying form
   final _actualAmountController = TextEditingController();
-
-  // Image picker
   final _imagePicker = ImagePicker();
 
-  // Realtime
   RealtimeChannel? _realtimeChannel;
 
   @override
@@ -69,7 +65,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        showSugoBaySnackBar(context, 'Error loading job: $e', isError: true);
+        showSugoBaySnackBar(context, 'Error loading job: $e',
+            isError: true);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -81,7 +78,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         .select()
         .eq('id', widget.jobId)
         .maybeSingle();
-
     if (order == null) return;
 
     final items = await SupabaseService.orderItems()
@@ -113,7 +109,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         .select()
         .eq('id', widget.jobId)
         .maybeSingle();
-
     if (request == null) return;
 
     final customer = await SupabaseService.users()
@@ -130,7 +125,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   void _subscribeRealtime() {
-    final table = widget.jobType == 'food' ? 'orders' : 'pahapit_requests';
+    final table =
+        widget.jobType == 'food' ? 'orders' : 'pahapit_requests';
     _realtimeChannel = SupabaseService.client
         .channel('job_detail_${widget.jobType}_${widget.jobId}')
         .onPostgresChanges(
@@ -147,8 +143,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         .subscribe();
   }
 
-  // ─── Food Order Actions ──────────────────────────────────────────────
-
+  // Food Order Actions
   Future<void> _acceptFoodOrder() async {
     final userId = SupabaseService.currentUserId;
     if (userId == null) return;
@@ -181,7 +176,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       }).eq('id', widget.jobId);
 
       if (mounted) {
-        showSugoBaySnackBar(context, 'Order picked up! Heading to customer.');
+        showSugoBaySnackBar(
+            context, 'Order picked up! Heading to customer.');
         _loadData();
       }
     } catch (e) {
@@ -194,7 +190,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _markFoodDelivered() async {
-    // Take delivery proof photo
     final photo = await _takePhoto('Take delivery proof photo');
     if (photo == null) return;
 
@@ -229,8 +224,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
   }
 
-  // ─── Pahapit Actions ─────────────────────────────────────────────────
-
+  // Pahapit Actions
   Future<void> _acceptPahapitErrand() async {
     final userId = SupabaseService.currentUserId;
     if (userId == null) return;
@@ -285,11 +279,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
     final actualAmount = double.tryParse(amountText);
     if (actualAmount == null || actualAmount <= 0) {
-      showSugoBaySnackBar(context, 'Enter a valid amount', isError: true);
+      showSugoBaySnackBar(context, 'Enter a valid amount',
+          isError: true);
       return;
     }
 
-    // Take receipt photo
     final receiptPhoto = await _takePhoto('Take receipt photo');
     if (receiptPhoto == null) return;
 
@@ -305,8 +299,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         fileBytes: bytes,
       );
 
-      final errandFee = (_pahapitRequest?['errand_fee'] ?? AppConstants.errandFee).toDouble();
-      final deliveryFee = (_pahapitRequest?['delivery_fee'] ?? 0).toDouble();
+      final errandFee =
+          (_pahapitRequest?['errand_fee'] ?? AppConstants.errandFee)
+              .toDouble();
+      final deliveryFee =
+          (_pahapitRequest?['delivery_fee'] ?? 0).toDouble();
       final totalAmount = actualAmount + errandFee + deliveryFee;
 
       await SupabaseService.pahapitRequests().update({
@@ -317,7 +314,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       }).eq('id', widget.jobId);
 
       if (mounted) {
-        showSugoBaySnackBar(context, 'Now delivering to customer!');
+        showSugoBaySnackBar(
+            context, 'Now delivering to customer!');
         _loadData();
       }
     } catch (e) {
@@ -330,7 +328,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _markPahapitCompleted() async {
-    // Take delivery proof photo
     final photo = await _takePhoto('Take delivery proof photo');
     if (photo == null) return;
 
@@ -365,19 +362,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────────
-
   Future<XFile?> _takePhoto(String title) async {
     try {
-      final photo = await _imagePicker.pickImage(
+      return await _imagePicker.pickImage(
         source: ImageSource.camera,
         imageQuality: 70,
         maxWidth: 1024,
       );
-      return photo;
     } catch (e) {
       if (mounted) {
-        showSugoBaySnackBar(context, 'Camera error: $e', isError: true);
+        showSugoBaySnackBar(context, 'Camera error: $e',
+            isError: true);
       }
       return null;
     }
@@ -393,23 +388,25 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       destLat = _order?['delivery_lat'];
       destLng = _order?['delivery_lng'];
     } else {
-      // For pahapit, navigate to store first if buying, or customer if delivering
       final status = _pahapitRequest?['status'];
       if (status == 'accepted' || status == 'buying') {
         destAddress = _pahapitRequest?['store_name'];
         destLat = _pahapitRequest?['store_lat'];
         destLng = _pahapitRequest?['store_lng'];
       } else {
-        destAddress = _customer?['address'] ?? _pahapitRequest?['delivery_address'];
+        destAddress = _customer?['address'] ??
+            _pahapitRequest?['delivery_address'];
         destLat = _pahapitRequest?['delivery_lat'];
         destLng = _pahapitRequest?['delivery_lng'];
       }
     }
 
     final destinationPoint = parseLatLng(destLat, destLng);
-    if ((destAddress == null || destAddress.isEmpty) && destinationPoint == null) {
+    if ((destAddress == null || destAddress.isEmpty) &&
+        destinationPoint == null) {
       if (mounted) {
-        showSugoBaySnackBar(context, 'No destination address available',
+        showSugoBaySnackBar(
+            context, 'No destination address available',
             isError: true);
       }
       return;
@@ -422,25 +419,31 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
-  // ─── Build ────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
+
     return Scaffold(
-      backgroundColor: AppColors.primaryBg,
+      backgroundColor: c.bg,
       appBar: AppBar(
-        backgroundColor: AppColors.cardBg,
+        backgroundColor: c.cardBg,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: c.textPrimary),
           onPressed: () => context.pop(),
         ),
         title: Text(
-          widget.jobType == 'food' ? 'Food Delivery' : 'Pahapit Errand',
-          style: AppTextStyles.subheading,
+          widget.jobType == 'food'
+              ? 'Food Delivery'
+              : 'Pahapit Errand',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: c.textPrimary,
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.navigation, color: AppColors.teal),
+            icon: const Icon(Icons.navigation, color: SColors.primary),
             tooltip: 'Navigate',
             onPressed: _openNavigation,
           ),
@@ -448,16 +451,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: AppColors.teal))
+              child:
+                  CircularProgressIndicator(color: SColors.primary))
           : widget.jobType == 'food'
-              ? _buildFoodOrderDetail()
-              : _buildPahapitDetail(),
+              ? _buildFoodOrderDetail(c)
+              : _buildPahapitDetail(c),
     );
   }
 
-  // ─── Food Order Detail ────────────────────────────────────────────────
-
-  Widget _buildFoodOrderDetail() {
+  // Food Order Detail
+  Widget _buildFoodOrderDetail(SugoColors c) {
     if (_order == null) {
       return const EmptyState(
           icon: Icons.error_outline, title: 'Order not found');
@@ -477,18 +480,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Status header
         SugoBayCard(
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.coral.withAlpha(30),
+                  color: SColors.coral.withAlpha(30),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child:
-                    const Icon(Icons.restaurant, color: AppColors.coral, size: 32),
+                child: const Icon(Icons.restaurant,
+                    color: SColors.coral, size: 32),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -496,10 +498,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Food Delivery',
-                        style: AppTextStyles.caption
-                            .copyWith(color: AppColors.coral)),
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12, color: SColors.coral)),
                     Text(merchantName,
-                        style: AppTextStyles.subheading),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: c.textPrimary,
+                        )),
                   ],
                 ),
               ),
@@ -509,33 +515,35 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Customer info
         SugoBayCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Customer',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.gold)),
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12, color: SColors.gold)),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.person, color: Colors.white54, size: 20),
+                  Icon(Icons.person,
+                      color: c.textTertiary, size: 20),
                   const SizedBox(width: 8),
                   Text(customerName,
-                      style:
-                          AppTextStyles.body.copyWith(color: Colors.white)),
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14, color: c.textPrimary)),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.location_on,
-                      color: Colors.white54, size: 20),
+                  Icon(Icons.location_on,
+                      color: c.textTertiary, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(address,
-                        style: AppTextStyles.body
-                            .copyWith(color: Colors.white)),
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14,
+                            color: c.textPrimary)),
                   ),
                 ],
               ),
@@ -544,10 +552,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.notes, color: Colors.white54, size: 20),
+                    Icon(Icons.notes,
+                        color: c.textTertiary, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(notes, style: AppTextStyles.caption),
+                      child: Text(notes,
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              color: c.textTertiary)),
                     ),
                   ],
                 ),
@@ -557,58 +569,75 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Order items
         SugoBayCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Order Items',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.gold)),
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12, color: SColors.gold)),
               const SizedBox(height: 12),
               ..._orderItems.map((item) {
-                final name = item['menu_items']?['name'] ?? 'Item';
+                final name =
+                    item['menu_items']?['name'] ?? 'Item';
                 final qty = item['quantity'] ?? 1;
-                final price = (item['subtotal'] ?? 0).toDouble();
+                final price =
+                    (item['subtotal'] ?? 0).toDouble();
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
                       Text('${qty}x',
-                          style: AppTextStyles.body
-                              .copyWith(color: AppColors.teal)),
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14,
+                              color: SColors.primary)),
                       const SizedBox(width: 8),
                       Expanded(
                           child: Text(name,
-                              style: AppTextStyles.body
-                                  .copyWith(color: Colors.white))),
-                      Text('\u20B1${price.toStringAsFixed(2)}',
-                          style: AppTextStyles.body
-                              .copyWith(color: AppColors.gold)),
+                              style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 14,
+                                  color: c.textPrimary))),
+                      Text(
+                          '\u20B1${price.toStringAsFixed(2)}',
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14,
+                              color: SColors.gold)),
                     ],
                   ),
                 );
               }),
-              const Divider(color: AppColors.darkGrey, height: 20),
+              Divider(color: c.divider, height: 20),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Delivery Fee',
-                      style: AppTextStyles.body.copyWith(color: Colors.white)),
-                  Text('\u20B1${deliveryFee.toStringAsFixed(2)}',
-                      style:
-                          AppTextStyles.body.copyWith(color: AppColors.gold)),
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          color: c.textPrimary)),
+                  Text(
+                      '\u20B1${deliveryFee.toStringAsFixed(2)}',
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14, color: SColors.gold)),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Total',
-                      style: AppTextStyles.subheading
-                          .copyWith(color: Colors.white)),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: c.textPrimary,
+                      )),
                   Text('\u20B1${total.toStringAsFixed(2)}',
-                      style: AppTextStyles.subheading
-                          .copyWith(color: AppColors.gold)),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: SColors.gold,
+                      )),
                 ],
               ),
             ],
@@ -616,33 +645,29 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Navigation button
         SugoBayButton(
           text: 'Open Navigation',
           onPressed: _openNavigation,
           outlined: true,
-          color: AppColors.teal,
+          color: SColors.primary,
         ),
         const SizedBox(height: 12),
 
-        // Action buttons
-        _buildFoodActionButton(status, riderId, isMyJob),
-
+        _buildFoodActionButton(c, status, riderId, isMyJob),
         const SizedBox(height: 32),
       ],
     );
   }
 
   Widget _buildFoodActionButton(
-      String status, String? riderId, bool isMyJob) {
-    // Not assigned yet
+      SugoColors c, String status, String? riderId, bool isMyJob) {
     if (riderId == null &&
         (status == 'pending' || status == 'ready_for_pickup')) {
       return SugoBayButton(
         text: 'Accept Job',
         onPressed: _acceptFoodOrder,
         isLoading: _isActionLoading,
-        color: AppColors.teal,
+        color: SColors.primary,
       );
     }
 
@@ -650,12 +675,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       return SugoBayCard(
         child: Center(
           child: Text('Assigned to another rider',
-              style: AppTextStyles.body.copyWith(color: Colors.white54)),
+              style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14, color: c.textTertiary)),
         ),
       );
     }
 
-    // Waiting for merchant
     if (status == 'accepted' || status == 'preparing') {
       return SugoBayCard(
         child: Row(
@@ -664,48 +689,50 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             const SizedBox(
               width: 20,
               height: 20,
-              child:
-                  CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: SColors.gold),
             ),
             const SizedBox(width: 12),
             Text('Waiting for merchant to prepare...',
-                style: AppTextStyles.body.copyWith(color: AppColors.gold)),
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14, color: SColors.gold)),
           ],
         ),
       );
     }
 
-    // Ready for pickup
     if (status == 'ready_for_pickup') {
       return SugoBayButton(
         text: 'Pick Up',
         onPressed: _pickUpFoodOrder,
         isLoading: _isActionLoading,
-        color: AppColors.coral,
+        color: SColors.coral,
       );
     }
 
-    // Picked up -> deliver
     if (status == 'picked_up') {
       return SugoBayButton(
         text: 'Mark Delivered',
         onPressed: _markFoodDelivered,
         isLoading: _isActionLoading,
-        color: AppColors.success,
+        color: SColors.success,
       );
     }
 
-    // Delivered
     if (status == 'delivered') {
       return SugoBayCard(
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.check_circle, color: AppColors.success),
+            const Icon(Icons.check_circle,
+                color: SColors.success),
             const SizedBox(width: 8),
             Text('Delivered',
-                style:
-                    AppTextStyles.subheading.copyWith(color: AppColors.success)),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: SColors.success,
+                )),
           ],
         ),
       );
@@ -714,9 +741,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     return const SizedBox.shrink();
   }
 
-  // ─── Pahapit Detail ───────────────────────────────────────────────────
-
-  Widget _buildPahapitDetail() {
+  // Pahapit Detail
+  Widget _buildPahapitDetail(SugoColors c) {
     if (_pahapitRequest == null) {
       return const EmptyState(
           icon: Icons.error_outline, title: 'Request not found');
@@ -726,38 +752,45 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final riderId = _pahapitRequest!['rider_id'];
     final userId = SupabaseService.currentUserId;
     final isMyJob = riderId == userId;
-    final storeName = _pahapitRequest!['store_name'] ?? 'Unknown Store';
-    final storeCategory = _pahapitRequest!['store_category'] ?? '';
-    final itemsDescription = _pahapitRequest!['items_description'] ?? '';
-    final budgetLimit = (_pahapitRequest!['budget_limit'] ?? 0).toDouble();
+    final storeName =
+        _pahapitRequest!['store_name'] ?? 'Unknown Store';
+    final storeCategory =
+        _pahapitRequest!['store_category'] ?? '';
+    final itemsDescription =
+        _pahapitRequest!['items_description'] ?? '';
+    final budgetLimit =
+        (_pahapitRequest!['budget_limit'] ?? 0).toDouble();
     final specialInstructions =
         _pahapitRequest!['special_instructions'] ?? '';
     final errandFee =
-        (_pahapitRequest!['errand_fee'] ?? AppConstants.errandFee).toDouble();
-    final deliveryFee = (_pahapitRequest!['delivery_fee'] ?? 0).toDouble();
+        (_pahapitRequest!['errand_fee'] ?? AppConstants.errandFee)
+            .toDouble();
+    final deliveryFee =
+        (_pahapitRequest!['delivery_fee'] ?? 0).toDouble();
     final actualAmountSpent =
         (_pahapitRequest!['actual_amount_spent'] ?? 0).toDouble();
-    final totalAmount = (_pahapitRequest!['total_amount'] ?? 0).toDouble();
+    final totalAmount =
+        (_pahapitRequest!['total_amount'] ?? 0).toDouble();
     final customerName = _customer?['name'] ?? 'Customer';
     final customerPhone = _customer?['phone'] ?? '';
-    final deliveryAddress =
-        _customer?['address'] ?? _pahapitRequest!['delivery_address'] ?? 'No address';
+    final deliveryAddress = _customer?['address'] ??
+        _pahapitRequest!['delivery_address'] ??
+        'No address';
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Status header
         SugoBayCard(
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.teal.withAlpha(30),
+                  color: SColors.primary.withAlpha(30),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.shopping_bag,
-                    color: AppColors.teal, size: 32),
+                    color: SColors.primary, size: 32),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -765,11 +798,20 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Pahapit Errand',
-                        style: AppTextStyles.caption
-                            .copyWith(color: AppColors.teal)),
-                    Text(storeName, style: AppTextStyles.subheading),
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            color: SColors.primary)),
+                    Text(storeName,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: c.textPrimary,
+                        )),
                     if (storeCategory.isNotEmpty)
-                      Text(storeCategory, style: AppTextStyles.caption),
+                      Text(storeCategory,
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              color: c.textTertiary)),
                   ],
                 ),
               ),
@@ -779,45 +821,50 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Customer info
         SugoBayCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Customer',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.gold)),
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12, color: SColors.gold)),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.person, color: Colors.white54, size: 20),
+                  Icon(Icons.person,
+                      color: c.textTertiary, size: 20),
                   const SizedBox(width: 8),
                   Text(customerName,
-                      style:
-                          AppTextStyles.body.copyWith(color: Colors.white)),
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          color: c.textPrimary)),
                 ],
               ),
               if (customerPhone.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.phone, color: Colors.white54, size: 20),
+                    Icon(Icons.phone,
+                        color: c.textTertiary, size: 20),
                     const SizedBox(width: 8),
                     Text(customerPhone,
-                        style:
-                            AppTextStyles.body.copyWith(color: Colors.white)),
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14,
+                            color: c.textPrimary)),
                   ],
                 ),
               ],
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.location_on,
-                      color: Colors.white54, size: 20),
+                  Icon(Icons.location_on,
+                      color: c.textTertiary, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(deliveryAddress,
-                        style:
-                            AppTextStyles.body.copyWith(color: Colors.white)),
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14,
+                            color: c.textPrimary)),
                   ),
                 ],
               ),
@@ -826,139 +873,154 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Items description
         SugoBayCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Items to Buy',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.gold)),
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12, color: SColors.gold)),
               const SizedBox(height: 8),
               Text(itemsDescription,
-                  style: AppTextStyles.body.copyWith(color: Colors.white)),
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14, color: c.textPrimary)),
               const SizedBox(height: 12),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Budget Limit',
-                      style: AppTextStyles.body.copyWith(color: Colors.white70)),
-                  Text('\u20B1${budgetLimit.toStringAsFixed(2)}',
-                      style: AppTextStyles.subheading
-                          .copyWith(color: AppColors.gold)),
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          color: c.textSecondary)),
+                  Text(
+                      '\u20B1${budgetLimit.toStringAsFixed(2)}',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: SColors.gold,
+                      )),
                 ],
               ),
               if (specialInstructions.isNotEmpty) ...[
-                const Divider(color: AppColors.darkGrey, height: 20),
+                Divider(color: c.divider, height: 20),
                 Text('Special Instructions',
-                    style:
-                        AppTextStyles.caption.copyWith(color: AppColors.coral)),
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12, color: SColors.coral)),
                 const SizedBox(height: 4),
                 Text(specialInstructions,
-                    style: AppTextStyles.body.copyWith(color: Colors.white)),
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        color: c.textPrimary)),
               ],
             ],
           ),
         ),
         const SizedBox(height: 16),
 
-        // Fee breakdown
         SugoBayCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Fee Breakdown',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.gold)),
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12, color: SColors.gold)),
               const SizedBox(height: 8),
-              _feeRow('Errand Fee', '\u20B1${errandFee.toStringAsFixed(2)}'),
+              _feeRow(c, 'Errand Fee',
+                  '\u20B1${errandFee.toStringAsFixed(2)}'),
               const SizedBox(height: 4),
-              _feeRow(
-                  'Delivery Fee', '\u20B1${deliveryFee.toStringAsFixed(2)}'),
+              _feeRow(c, 'Delivery Fee',
+                  '\u20B1${deliveryFee.toStringAsFixed(2)}'),
               if (actualAmountSpent > 0) ...[
                 const SizedBox(height: 4),
-                _feeRow('Items Cost',
+                _feeRow(c, 'Items Cost',
                     '\u20B1${actualAmountSpent.toStringAsFixed(2)}'),
               ],
               if (totalAmount > 0) ...[
-                const Divider(color: AppColors.darkGrey, height: 16),
-                _feeRow(
-                  'Total',
-                  '\u20B1${totalAmount.toStringAsFixed(2)}',
-                  bold: true,
-                ),
+                Divider(color: c.divider, height: 16),
+                _feeRow(c, 'Total',
+                    '\u20B1${totalAmount.toStringAsFixed(2)}',
+                    bold: true),
               ],
             ],
           ),
         ),
         const SizedBox(height: 16),
 
-        // Budget warning during buying
         if (status == 'buying' && isMyJob)
           Container(
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: AppColors.warning.withAlpha(30),
+              color: SColors.warning.withAlpha(30),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.warning),
+              border: Border.all(color: SColors.warning),
             ),
             child: Row(
               children: [
-                const Icon(Icons.warning_amber, color: AppColors.warning),
+                const Icon(Icons.warning_amber,
+                    color: SColors.warning),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'If items exceed budget of \u20B1${budgetLimit.toStringAsFixed(0)}, call customer first',
-                    style:
-                        AppTextStyles.caption.copyWith(color: AppColors.warning),
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: SColors.warning),
                   ),
                 ),
               ],
             ),
           ),
 
-        // Navigation button
         SugoBayButton(
           text: 'Open Navigation',
           onPressed: _openNavigation,
           outlined: true,
-          color: AppColors.teal,
+          color: SColors.primary,
         ),
         const SizedBox(height: 12),
 
-        // Action buttons
-        _buildPahapitActionButton(status, riderId, isMyJob),
-
+        _buildPahapitActionButton(
+            c, status, riderId, isMyJob),
         const SizedBox(height: 32),
       ],
     );
   }
 
-  Widget _feeRow(String label, String value, {bool bold = false}) {
+  Widget _feeRow(SugoColors c, String label, String value,
+      {bool bold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
             style: bold
-                ? AppTextStyles.body
-                    .copyWith(color: Colors.white, fontWeight: FontWeight.bold)
-                : AppTextStyles.body.copyWith(color: Colors.white70)),
+                ? GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: c.textPrimary)
+                : GoogleFonts.plusJakartaSans(
+                    fontSize: 14, color: c.textSecondary)),
         Text(value,
             style: bold
-                ? AppTextStyles.subheading.copyWith(color: AppColors.gold)
-                : AppTextStyles.body.copyWith(color: AppColors.gold)),
+                ? GoogleFonts.plusJakartaSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: SColors.gold)
+                : GoogleFonts.plusJakartaSans(
+                    fontSize: 14, color: SColors.gold)),
       ],
     );
   }
 
   Widget _buildPahapitActionButton(
-      String status, String? riderId, bool isMyJob) {
-    // Not assigned
+      SugoColors c, String status, String? riderId, bool isMyJob) {
     if (riderId == null && status == 'pending') {
       return SugoBayButton(
         text: 'Accept Errand',
         onPressed: _acceptPahapitErrand,
         isLoading: _isActionLoading,
-        color: AppColors.teal,
+        color: SColors.primary,
       );
     }
 
@@ -966,22 +1028,21 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       return SugoBayCard(
         child: Center(
           child: Text('Assigned to another rider',
-              style: AppTextStyles.body.copyWith(color: Colors.white54)),
+              style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14, color: c.textTertiary)),
         ),
       );
     }
 
-    // Accepted -> start buying
     if (status == 'accepted') {
       return SugoBayButton(
         text: 'Start Buying',
         onPressed: _startBuying,
         isLoading: _isActionLoading,
-        color: AppColors.gold,
+        color: SColors.gold,
       );
     }
 
-    // Buying -> enter amount, receipt photo, then delivering
     if (status == 'buying') {
       return Column(
         children: [
@@ -989,41 +1050,45 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             label: 'Actual Amount Spent',
             hint: 'Enter total item cost',
             controller: _actualAmountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            prefix: const Icon(Icons.payments, color: AppColors.gold),
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            prefix:
+                const Icon(Icons.payments, color: SColors.gold),
           ),
           const SizedBox(height: 12),
           SugoBayButton(
             text: 'Upload Receipt & Start Delivery',
             onPressed: _finishBuyingAndDeliver,
             isLoading: _isActionLoading,
-            color: AppColors.coral,
+            color: SColors.coral,
           ),
         ],
       );
     }
 
-    // Delivering -> mark completed
     if (status == 'delivering') {
       return SugoBayButton(
         text: 'Mark Completed',
         onPressed: _markPahapitCompleted,
         isLoading: _isActionLoading,
-        color: AppColors.success,
+        color: SColors.success,
       );
     }
 
-    // Completed
     if (status == 'completed') {
       return SugoBayCard(
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.check_circle, color: AppColors.success),
+            const Icon(Icons.check_circle,
+                color: SColors.success),
             const SizedBox(width: 8),
             Text('Completed',
-                style:
-                    AppTextStyles.subheading.copyWith(color: AppColors.success)),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: SColors.success,
+                )),
           ],
         ),
       );

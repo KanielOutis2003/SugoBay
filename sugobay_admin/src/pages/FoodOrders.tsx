@@ -1,17 +1,43 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabaseAdmin } from '../lib/supabase'
 import type { Order } from '../lib/supabase'
+import { exportToCsv } from '../lib/csvExport'
+
+function InputModal({ title, placeholder, isOpen, onClose, onSubmit }: {
+  title: string; placeholder: string; isOpen: boolean;
+  onClose: () => void; onSubmit: (value: string) => void;
+}) {
+  const [value, setValue] = useState('')
+  if (!isOpen) return null
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-[#23252A] rounded-xl p-6 border border-[#2D2F34] w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
+        <input
+          type="text" value={value} onChange={e => setValue(e.target.value)} placeholder={placeholder} autoFocus
+          className="w-full px-4 py-3 bg-[#1A1C20] text-white rounded-lg border border-[#2D2F34] focus:border-[#2A9D8F] outline-none mb-4"
+        />
+        <div className="flex gap-3 justify-end">
+          <button onClick={onClose} className="px-4 py-2 text-gray-400 hover:text-white text-sm">Cancel</button>
+          <button onClick={() => { if (value.trim()) { onSubmit(value.trim()); setValue(''); onClose(); } }}
+            className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg text-sm hover:bg-[#2A9D8F]/80">Submit</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function FoodOrders() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [reassignModal, setReassignModal] = useState<{ isOpen: boolean; orderId: string }>({ isOpen: false, orderId: '' })
 
   useEffect(() => { loadOrders() }, [filter])
 
   async function loadOrders() {
     setLoading(true)
-    let query = supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100)
+    let query = supabaseAdmin.from('orders').select('*').order('created_at', { ascending: false }).limit(100)
     if (filter !== 'all') query = query.eq('status', filter)
     const { data } = await query
     setOrders(data || [])
@@ -19,14 +45,12 @@ export default function FoodOrders() {
   }
 
   async function updateStatus(id: string, status: string) {
-    await supabase.from('orders').update({ status }).eq('id', id)
+    await supabaseAdmin.from('orders').update({ status }).eq('id', id)
     loadOrders()
   }
 
-  async function reassignRider(orderId: string) {
-    const riderId = prompt('Enter new rider ID:')
-    if (!riderId) return
-    await supabase.from('orders').update({ rider_id: riderId }).eq('id', orderId)
+  async function reassignRider(riderId: string) {
+    await supabaseAdmin.from('orders').update({ rider_id: riderId }).eq('id', reassignModal.orderId)
     loadOrders()
   }
 
@@ -36,7 +60,10 @@ export default function FoodOrders() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">Food Orders</h1>
-        <button onClick={loadOrders} className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg text-sm">Refresh</button>
+        <div className="flex gap-2">
+          <button onClick={() => exportToCsv('food_orders', orders)} className="px-4 py-2 bg-[#23252A] text-gray-300 rounded-lg text-sm border border-[#2D2F34] hover:bg-[#2D2F34]">Export CSV</button>
+          <button onClick={loadOrders} className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg text-sm">Refresh</button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -97,7 +124,7 @@ export default function FoodOrders() {
                         <button onClick={() => updateStatus(order.id, 'cancelled')} className="text-xs text-red-400 hover:text-red-300">Cancel</button>
                       )}
                       {order.rider_id && order.status !== 'delivered' && (
-                        <button onClick={() => reassignRider(order.id)} className="text-xs text-[#2A9D8F] hover:text-[#2A9D8F]/80">Reassign</button>
+                        <button onClick={() => setReassignModal({ isOpen: true, orderId: order.id })} className="text-xs text-[#2A9D8F] hover:text-[#2A9D8F]/80">Reassign</button>
                       )}
                     </div>
                   </td>
@@ -107,6 +134,13 @@ export default function FoodOrders() {
           </table>
         </div>
       )}
+      <InputModal
+        title="Reassign Rider"
+        placeholder="Enter new rider ID"
+        isOpen={reassignModal.isOpen}
+        onClose={() => setReassignModal({ isOpen: false, orderId: '' })}
+        onSubmit={reassignRider}
+      />
     </div>
   )
 }

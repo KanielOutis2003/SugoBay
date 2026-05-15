@@ -1,36 +1,58 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabaseAdmin } from '../lib/supabase'
 import type { Complaint } from '../lib/supabase'
+
+function ResolveModal({ isOpen, onClose, onSubmit }: {
+  isOpen: boolean; onClose: () => void; onSubmit: (resolution: string) => void;
+}) {
+  const [value, setValue] = useState('')
+  if (!isOpen) return null
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-[#23252A] rounded-xl p-6 border border-[#2D2F34] w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-semibold text-white mb-4">Resolve Complaint</h3>
+        <textarea
+          value={value} onChange={e => setValue(e.target.value)} placeholder="Enter resolution details..." autoFocus rows={3}
+          className="w-full px-4 py-3 bg-[#1A1C20] text-white rounded-lg border border-[#2D2F34] focus:border-[#2A9D8F] outline-none mb-4 resize-none"
+        />
+        <div className="flex gap-3 justify-end">
+          <button onClick={onClose} className="px-4 py-2 text-gray-400 hover:text-white text-sm">Cancel</button>
+          <button onClick={() => { if (value.trim()) { onSubmit(value.trim()); setValue(''); onClose(); } }}
+            className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg text-sm hover:bg-[#2A9D8F]/80">Resolve</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function Complaints() {
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('open')
+  const [resolveModal, setResolveModal] = useState<{ isOpen: boolean; complaintId: string }>({ isOpen: false, complaintId: '' })
 
   useEffect(() => { loadComplaints() }, [filter])
 
   async function loadComplaints() {
     setLoading(true)
-    let query = supabase.from('complaints').select('*').order('created_at', { ascending: false })
+    let query = supabaseAdmin.from('complaints').select('*').order('created_at', { ascending: false })
     if (filter !== 'all') query = query.eq('status', filter)
     const { data } = await query
     setComplaints(data || [])
     setLoading(false)
   }
 
-  async function resolve(id: string) {
-    const resolution = prompt('Enter resolution:')
-    if (!resolution) return
-    await supabase.from('complaints').update({
+  async function resolve(resolution: string) {
+    await supabaseAdmin.from('complaints').update({
       status: 'resolved',
       resolution,
       resolved_at: new Date().toISOString(),
-    }).eq('id', id)
+    }).eq('id', resolveModal.complaintId)
     loadComplaints()
   }
 
   async function dismiss(id: string) {
-    await supabase.from('complaints').update({
+    await supabaseAdmin.from('complaints').update({
       status: 'dismissed',
       resolved_at: new Date().toISOString(),
     }).eq('id', id)
@@ -80,7 +102,7 @@ export default function Complaints() {
               )}
               {c.status === 'open' && (
                 <div className="flex gap-2">
-                  <button onClick={() => resolve(c.id)} className="px-3 py-1.5 bg-[#2A9D8F] text-white rounded-lg text-xs">Resolve</button>
+                  <button onClick={() => setResolveModal({ isOpen: true, complaintId: c.id })} className="px-3 py-1.5 bg-[#2A9D8F] text-white rounded-lg text-xs">Resolve</button>
                   <button onClick={() => dismiss(c.id)} className="px-3 py-1.5 bg-[#2D2F34] text-gray-400 rounded-lg text-xs">Dismiss</button>
                 </div>
               )}
@@ -88,6 +110,11 @@ export default function Complaints() {
           ))}
         </div>
       )}
+      <ResolveModal
+        isOpen={resolveModal.isOpen}
+        onClose={() => setResolveModal({ isOpen: false, complaintId: '' })}
+        onSubmit={resolve}
+      />
     </div>
   )
 }

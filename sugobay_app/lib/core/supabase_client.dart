@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'constants.dart';
 
@@ -37,6 +39,8 @@ class SupabaseService {
   static SupabaseQueryBuilder appSettings() => client.from('app_settings');
   static SupabaseQueryBuilder incentiveFund() => client.from('incentive_fund');
   static SupabaseQueryBuilder subscriptions() => client.from('subscriptions');
+  static SupabaseQueryBuilder habalHabalRides() =>
+      client.from('habal_habal_rides');
 
   // Realtime channels
   static RealtimeChannel ordersChannel() =>
@@ -57,7 +61,7 @@ class SupabaseService {
   }) async {
     await storage.from(bucket).uploadBinary(
           path,
-          fileBytes as dynamic,
+          Uint8List.fromList(fileBytes),
           fileOptions: FileOptions(contentType: contentType ?? 'image/jpeg'),
         );
     return storage.from(bucket).getPublicUrl(path);

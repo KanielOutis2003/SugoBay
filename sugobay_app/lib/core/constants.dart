@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
 class AppConstants {
@@ -36,8 +37,14 @@ class AppConstants {
   static const double riderDeliveryFeePercent = 0.75;
   static const double incentivePerOrder = 5.0;
 
-  // Rider GPS
-  static const int gpsUpdateIntervalSeconds = 5;
+  // Rider GPS — 15s balances accuracy vs DB writes
+  static const int gpsUpdateIntervalSeconds = 15;
+  static const double gpsMinDistanceMeters = 10.0;
+
+  // Habal-habal fare
+  static const double habalBaseFare = 20.0;
+  static const double habalPerKmRate = 8.0;
+  static const double habalMinFare = 25.0;
 
   // Auto-rate
   static const int autoRateHours = 24;
@@ -83,24 +90,31 @@ class AppColors {
 }
 
 class AppTextStyles {
-  static const TextStyle heading = TextStyle(
+  static TextStyle heading = GoogleFonts.plusJakartaSans(
     fontSize: 24,
     fontWeight: FontWeight.bold,
     color: Colors.white,
+    letterSpacing: -0.5,
   );
-  static const TextStyle subheading = TextStyle(
+  static TextStyle subheading = GoogleFonts.plusJakartaSans(
     fontSize: 18,
     fontWeight: FontWeight.w600,
     color: Colors.white,
+    letterSpacing: -0.3,
   );
-  static const TextStyle body = TextStyle(fontSize: 14, color: Colors.white70);
-  static const TextStyle caption = TextStyle(
+  static TextStyle body = GoogleFonts.plusJakartaSans(
+    fontSize: 14,
+    color: Colors.white70,
+    height: 1.5,
+  );
+  static TextStyle caption = GoogleFonts.plusJakartaSans(
     fontSize: 12,
     color: Colors.white54,
   );
-  static const TextStyle button = TextStyle(
+  static TextStyle button = GoogleFonts.plusJakartaSans(
     fontSize: 16,
     fontWeight: FontWeight.w600,
     color: Colors.white,
+    letterSpacing: 0.3,
   );
 }

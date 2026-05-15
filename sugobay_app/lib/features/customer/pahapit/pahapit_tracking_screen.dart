@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants.dart';
 import '../../../core/supabase_client.dart';
+import '../../../core/theme.dart';
 import '../../../shared/open_street_map.dart';
 import '../../../shared/widgets.dart';
 
@@ -82,12 +85,11 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
         }
       }
 
-      // Check if already rated
       if (res != null && res['status'] == 'completed') {
         final ratingRes = await SupabaseService.ratings()
             .select()
-            .eq('order_id', widget.requestId)
-            .eq('rated_by', SupabaseService.currentUserId ?? '')
+            .eq('pahapit_id', widget.requestId)
+            .eq('customer_id', SupabaseService.currentUserId ?? '')
             .maybeSingle();
         if (mounted && ratingRes != null) {
           setState(() => _hasRated = true);
@@ -194,14 +196,12 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
 
     try {
       await SupabaseService.ratings().insert({
-        'order_id': widget.requestId,
-        'rated_by': SupabaseService.currentUserId,
-        'rated_user': _request?['rider_id'],
-        'rating': _riderRating,
+        'pahapit_id': widget.requestId,
+        'customer_id': SupabaseService.currentUserId,
+        'rider_rating': _riderRating,
         'comment': _ratingCommentController.text.trim().isEmpty
             ? null
             : _ratingCommentController.text.trim(),
-        'type': 'rider',
       });
 
       if (mounted) {
@@ -228,28 +228,81 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
+
     return Scaffold(
-      backgroundColor: AppColors.primaryBg,
-      appBar: AppBar(
-        backgroundColor: AppColors.primaryBg,
-        iconTheme: const IconThemeData(color: AppColors.white),
-        title:
-            const Text('Pahapit Tracking', style: AppTextStyles.subheading),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.white),
-            onPressed: _loadRequest,
-          ),
-        ],
+      backgroundColor: c.bg,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Header ──
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/customer');
+                      }
+                    },
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: c.inputBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(Icons.arrow_back,
+                          color: c.textPrimary, size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Text(
+                    'Pahapit Tracking',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: c.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: _loadRequest,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: c.inputBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(Icons.refresh,
+                          color: c.textPrimary, size: 20),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Expanded(child: _buildBody()),
+          ],
+        ),
       ),
-      body: _buildBody(),
     );
   }
 
   Widget _buildBody() {
+    final c = context.sc;
+
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.teal),
+      return Center(
+        child: CircularProgressIndicator(
+          color: SColors.primary,
+          strokeWidth: 2.5,
+        ),
       );
     }
     if (_error != null) {
@@ -257,13 +310,16 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, color: AppColors.coral, size: 48),
+            Icon(Icons.error_outline, color: SColors.coral, size: 48),
             const SizedBox(height: 12),
-            Text(_error!, style: AppTextStyles.body),
+            Text(_error!,
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14, color: c.textSecondary)),
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: SugoBayButton(text: 'Retry', onPressed: _loadRequest),
+              child:
+                  SugoBayButton(text: 'Retry', onPressed: _loadRequest),
             ),
           ],
         ),
@@ -277,52 +333,23 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Request summary card
-          SugoBayCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _request!['store_name'] ?? 'Store',
-                        style: AppTextStyles.subheading,
-                      ),
-                    ),
-                    StatusBadge(status: _request!['status'] ?? 'pending'),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _request!['items_description'] ?? '',
-                  style: AppTextStyles.body,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.account_balance_wallet,
-                        size: 14, color: AppColors.gold),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Budget: \u20B1${(_request!['budget_limit'] ?? 0).toDouble().toStringAsFixed(2)}',
-                      style:
-                          AppTextStyles.caption.copyWith(color: AppColors.gold),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          _buildSummaryCard(),
           const SizedBox(height: 20),
 
           // Status stepper
-          Text('Request Status', style: AppTextStyles.subheading),
+          Text(
+            'Request Status',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: c.textPrimary,
+            ),
+          ),
           const SizedBox(height: 12),
           _buildStatusStepper(),
 
@@ -339,7 +366,7 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
             _buildRiderMap(),
           ],
 
-          // Receipt and actual amount (delivering/completed)
+          // Receipt and actual amount
           if (_request!['status'] == 'delivering' ||
               _request!['status'] == 'completed') ...[
             const SizedBox(height: 20),
@@ -354,7 +381,7 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
             _buildRatingSection(),
           ],
 
-          const SizedBox(height: 40),
+          const SizedBox(height: 32),
 
           // Back to home
           SugoBayButton(
@@ -368,7 +395,66 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
     );
   }
 
+  Widget _buildSummaryCard() {
+    final c = context.sc;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: c.cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: c.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  _request!['store_name'] ?? 'Store',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: c.textPrimary,
+                  ),
+                ),
+              ),
+              StatusBadge(status: _request!['status'] ?? 'pending'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _request!['items_description'] ?? '',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              color: c.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.account_balance_wallet,
+                  size: 14, color: SColors.gold),
+              const SizedBox(width: 4),
+              Text(
+                'Budget: \u20B1${(_request!['budget_limit'] ?? 0).toDouble().toStringAsFixed(2)}',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13,
+                  color: SColors.gold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatusStepper() {
+    final c = context.sc;
+
     return Column(
       children: List.generate(_statusSteps.length, (index) {
         final isActive = index <= _currentStepIndex;
@@ -384,21 +470,22 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: isActive ? AppColors.teal : AppColors.darkGrey,
+                    color: isActive ? SColors.primary : c.inputBg,
                     shape: BoxShape.circle,
                     border: isCurrent
-                        ? Border.all(color: AppColors.gold, width: 2)
+                        ? Border.all(color: SColors.gold, width: 2)
                         : null,
                   ),
                   child: isActive
-                      ? const Icon(Icons.check, color: AppColors.white, size: 16)
+                      ? const Icon(Icons.check,
+                          color: Colors.white, size: 16)
                       : null,
                 ),
                 if (index < _statusSteps.length - 1)
                   Container(
                     width: 2,
                     height: 30,
-                    color: isActive ? AppColors.teal : AppColors.darkGrey,
+                    color: isActive ? SColors.primary : c.border,
                   ),
               ],
             ),
@@ -407,14 +494,15 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 label.toUpperCase(),
-                style: TextStyle(
+                style: GoogleFonts.plusJakartaSans(
                   color: isCurrent
-                      ? AppColors.gold
+                      ? SColors.gold
                       : isActive
-                          ? AppColors.teal
-                          : Colors.white38,
+                          ? SColors.primary
+                          : c.textTertiary,
                   fontSize: 13,
-                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                  fontWeight:
+                      isCurrent ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ),
@@ -425,18 +513,27 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
   }
 
   Widget _buildRiderCard() {
+    final c = context.sc;
     final riderName = _rider?['name'] ?? 'Rider';
     final riderPhone = _rider?['phone'] ?? '';
 
-    return SugoBayCard(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: c.cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: c.border),
+      ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: AppColors.teal,
+            backgroundColor: SColors.primary,
             child: Text(
               riderName[0].toUpperCase(),
-              style: const TextStyle(
-                  color: AppColors.white, fontWeight: FontWeight.bold),
+              style: GoogleFonts.plusJakartaSans(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -444,175 +541,264 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Your Rider', style: AppTextStyles.caption),
-                Text(riderName, style: AppTextStyles.subheading),
-                Text(riderPhone, style: AppTextStyles.caption),
+                Text('Your Rider',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12, color: c.textTertiary)),
+                Text(riderName,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: c.textPrimary,
+                    )),
+                Text(riderPhone,
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12, color: c.textTertiary)),
               ],
             ),
           ),
-          const Icon(Icons.delivery_dining, color: AppColors.teal, size: 28),
+          Icon(Icons.delivery_dining, color: SColors.primary, size: 28),
         ],
       ),
     );
   }
 
   Widget _buildRiderMap() {
-    final riderPoint = parseLatLng(_riderLocation?['lat'], _riderLocation?['lng']);
-    final storePoint = parseLatLng(_request?['store_lat'], _request?['store_lng']);
+    final riderPoint =
+        parseLatLng(_riderLocation?['lat'], _riderLocation?['lng']);
+    final storePoint =
+        parseLatLng(_request?['store_lat'], _request?['store_lng']);
     final markers = <MapMarkerData>[
       if (riderPoint != null)
         MapMarkerData(
           point: riderPoint,
           icon: Icons.delivery_dining,
-          color: AppColors.teal,
+          color: SColors.primary,
           label: 'Rider',
+          pulse: true,
         ),
       if (storePoint != null)
         MapMarkerData(
           point: storePoint,
           icon: Icons.store,
-          color: AppColors.gold,
+          color: SColors.gold,
           label: 'Store',
         ),
     ];
 
     return OpenStreetMapCard(
-      title: 'Live Rider Map',
+      title: 'Live Tracking',
       markers: markers,
       emptyMessage: 'Waiting for rider GPS update...',
+      showNavigateButton: storePoint != null,
+      onNavigatePressed: storePoint != null
+          ? () => openExternalNavigation(
+                context: context,
+                destinationPoint: storePoint,
+                destinationAddress: _request?['store_name'],
+              )
+          : null,
     );
   }
 
   Widget _buildReceiptSection() {
+    final c = context.sc;
     final receiptUrl = _request!['receipt_photo_url'];
     final actualAmount =
         (_request!['actual_amount_spent'] ?? 0).toDouble();
 
-    return SugoBayCard(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: c.cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: c.border),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Purchase Details', style: AppTextStyles.subheading),
+          Text('Purchase Details',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: c.textPrimary,
+              )),
           const SizedBox(height: 8),
           if (actualAmount > 0) ...[
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Actual Amount Spent', style: AppTextStyles.body),
+                Text('Actual Amount Spent',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14, color: c.textSecondary)),
                 Text(
                   '\u20B1${actualAmount.toStringAsFixed(2)}',
-                  style:
-                      AppTextStyles.body.copyWith(color: AppColors.teal),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    color: SColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
           ],
-          if (receiptUrl != null && receiptUrl.toString().isNotEmpty) ...[
-            Text('Receipt Photo', style: AppTextStyles.caption),
+          if (receiptUrl != null &&
+              receiptUrl.toString().isNotEmpty) ...[
+            Text('Receipt Photo',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12, color: c.textTertiary)),
             const SizedBox(height: 6),
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: Image.network(
                 receiptUrl.toString(),
                 height: 180,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   height: 80,
-                  color: AppColors.darkGrey,
-                  child: const Center(
+                  decoration: BoxDecoration(
+                    color: c.inputBg,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
                     child: Text('Unable to load receipt',
-                        style: TextStyle(color: Colors.white38)),
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13, color: c.textTertiary)),
                   ),
                 ),
               ),
             ),
           ] else
-            Text('No receipt uploaded yet', style: AppTextStyles.caption),
+            Text('No receipt uploaded yet',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12, color: c.textTertiary)),
         ],
       ),
     );
   }
 
   Widget _buildTotalBreakdown() {
+    final c = context.sc;
     final actualAmount =
         (_request!['actual_amount_spent'] ?? 0).toDouble();
-    final errandFee = (_request!['errand_fee'] ?? AppConstants.errandFee).toDouble();
+    final errandFee =
+        (_request!['errand_fee'] ?? AppConstants.errandFee).toDouble();
     final deliveryFee =
-        (_request!['delivery_fee'] ?? AppConstants.baseDeliveryFee).toDouble();
+        (_request!['delivery_fee'] ?? AppConstants.baseDeliveryFee)
+            .toDouble();
     final total = actualAmount + errandFee + deliveryFee;
 
-    return SugoBayCard(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: c.cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: c.border),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Total Breakdown', style: AppTextStyles.subheading),
+          Text('Total Breakdown',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: c.textPrimary,
+              )),
           const SizedBox(height: 10),
-          _priceRow('Items Cost',
-              '\u20B1${actualAmount.toStringAsFixed(2)}'),
+          _priceRow(
+              c, 'Items Cost', '\u20B1${actualAmount.toStringAsFixed(2)}'),
           const SizedBox(height: 4),
-          _priceRow('Errand Fee',
-              '\u20B1${errandFee.toStringAsFixed(2)}'),
+          _priceRow(
+              c, 'Errand Fee', '\u20B1${errandFee.toStringAsFixed(2)}'),
           const SizedBox(height: 4),
-          _priceRow('Delivery Fee',
+          _priceRow(c, 'Delivery Fee',
               '\u20B1${deliveryFee.toStringAsFixed(2)}'),
-          const Divider(color: AppColors.darkGrey, height: 16),
-          _priceRow('Total',
-              '\u20B1${total.toStringAsFixed(2)}',
+          Divider(color: c.divider, height: 16),
+          _priceRow(c, 'Total', '\u20B1${total.toStringAsFixed(2)}',
               isBold: true),
         ],
       ),
     );
   }
 
-  Widget _priceRow(String label, String value, {bool isBold = false}) {
+  Widget _priceRow(SugoColors c, String label, String value,
+      {bool isBold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
-            style: isBold
-                ? AppTextStyles.body.copyWith(color: AppColors.white)
-                : AppTextStyles.body),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              color: isBold ? c.textPrimary : c.textSecondary,
+              fontWeight: isBold ? FontWeight.w600 : FontWeight.w400,
+            )),
         Text(value,
-            style: isBold
-                ? AppTextStyles.body
-                    .copyWith(color: AppColors.teal, fontWeight: FontWeight.bold)
-                : AppTextStyles.body),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              color: isBold ? SColors.primary : c.textSecondary,
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
+            )),
       ],
     );
   }
 
   Widget _buildRatingSection() {
+    final c = context.sc;
+
     if (_hasRated) {
-      return SugoBayCard(
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: c.cardBg,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: c.border),
+        ),
         child: Row(
           children: [
-            const Icon(Icons.check_circle, color: AppColors.success),
+            const Icon(Icons.check_circle, color: SColors.success),
             const SizedBox(width: 10),
-            Text('You have rated this errand', style: AppTextStyles.body),
+            Text('You have rated this errand',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14, color: c.textSecondary)),
           ],
         ),
       );
     }
 
-    return SugoBayCard(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: c.cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: c.border),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Rate your Rider', style: AppTextStyles.subheading),
+          Text('Rate your Rider',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: c.textPrimary,
+              )),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(5, (i) {
               final starNum = i + 1;
               return GestureDetector(
-                onTap: () => setState(() => _riderRating = starNum),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _riderRating = starNum);
+                },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Icon(
-                    starNum <= _riderRating ? Icons.star : Icons.star_border,
-                    color: AppColors.gold,
+                    starNum <= _riderRating
+                        ? Icons.star
+                        : Icons.star_border,
+                    color: SColors.gold,
                     size: 36,
                   ),
                 ),
@@ -620,18 +806,29 @@ class _PahapitTrackingScreenState extends State<PahapitTrackingScreen> {
             }),
           ),
           const SizedBox(height: 12),
-          TextField(
+          TextFormField(
             controller: _ratingCommentController,
             maxLines: 2,
-            style: const TextStyle(color: AppColors.white),
+            style: GoogleFonts.plusJakartaSans(fontSize: 14, color: c.textPrimary),
+            cursorColor: SColors.primary,
             decoration: InputDecoration(
               hintText: 'Add a comment (optional)',
-              hintStyle: AppTextStyles.caption,
+              hintStyle: GoogleFonts.plusJakartaSans(
+                  fontSize: 14, color: c.textTertiary),
               filled: true,
-              fillColor: AppColors.darkGrey,
+              fillColor: c.inputBg,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: c.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(
+                    color: SColors.primary, width: 1.5),
               ),
             ),
           ),

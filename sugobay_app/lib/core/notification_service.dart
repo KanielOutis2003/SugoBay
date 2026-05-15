@@ -1,5 +1,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'supabase_client.dart';
 
 /// FCM notification service for SugoBay.
 /// Handles push notification setup, token management, and display.
@@ -10,6 +11,16 @@ class NotificationService {
 
   static String? _fcmToken;
   static String? get fcmToken => _fcmToken;
+
+  /// Sync current FCM token to Supabase users table
+  static Future<void> _syncTokenToSupabase(String token) async {
+    final userId = SupabaseService.currentUserId;
+    if (userId == null) return;
+    try {
+      await SupabaseService.users()
+          .update({'fcm_token': token}).eq('id', userId);
+    } catch (_) {}
+  }
 
   /// Initialize FCM and local notifications. Call in main.dart after Firebase init.
   static Future<void> initialize() async {
@@ -26,11 +37,14 @@ class NotificationService {
 
     // Get FCM token
     _fcmToken = await _messaging.getToken();
+    if (_fcmToken != null) {
+      _syncTokenToSupabase(_fcmToken!);
+    }
 
     // Listen for token refresh
     _messaging.onTokenRefresh.listen((token) {
       _fcmToken = token;
-      // TODO: Update token in Supabase users table
+      _syncTokenToSupabase(token);
     });
 
     // Setup local notifications for foreground display

@@ -2,10 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants.dart';
 import '../../core/supabase_client.dart';
+import '../../core/theme.dart';
 import '../../shared/widgets.dart';
 
 class OtpScreen extends StatefulWidget {
@@ -89,7 +91,6 @@ class _OtpScreenState extends State<OtpScreen> {
         return;
       }
 
-      // Check if user exists in users table
       final existing = await SupabaseService.users()
           .select()
           .eq('id', userId)
@@ -97,12 +98,12 @@ class _OtpScreenState extends State<OtpScreen> {
 
       if (!mounted) return;
 
-      if (existing != null && existing['role'] != null && existing['phone'] != null) {
-        // Existing complete user: route by role
+      if (existing != null &&
+          existing['role'] != null &&
+          existing['phone'] != null) {
         final role = existing['role'] as String?;
         _routeByRole(role);
       } else {
-        // New or incomplete profile: go to profile setup
         context.go('/profile-setup');
       }
     } catch (e) {
@@ -166,13 +167,15 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
+
     return Scaffold(
-      backgroundColor: AppColors.primaryBg,
+      backgroundColor: c.bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.white),
+          icon: Icon(Icons.arrow_back, color: c.textPrimary),
           onPressed: () => context.go('/login'),
         ),
       ),
@@ -185,23 +188,30 @@ class _OtpScreenState extends State<OtpScreen> {
               const Icon(
                 Icons.message_rounded,
                 size: 64,
-                color: AppColors.teal,
+                color: SColors.primary,
               ),
               const SizedBox(height: 24),
               Text(
                 'Verify your number',
-                style: AppTextStyles.heading,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: c.textPrimary,
+                ),
               ),
               const SizedBox(height: 10),
               Text(
                 'Enter the 6-digit code sent to',
-                style: AppTextStyles.body,
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14, color: c.textSecondary),
               ),
               const SizedBox(height: 4),
               Text(
                 widget.phone,
-                style: AppTextStyles.subheading.copyWith(
-                  color: AppColors.gold,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: SColors.gold,
                 ),
               ),
               const SizedBox(height: 36),
@@ -219,29 +229,34 @@ class _OtpScreenState extends State<OtpScreen> {
                       textAlign: TextAlign.center,
                       keyboardType: TextInputType.number,
                       maxLength: 1,
-                      style: AppTextStyles.heading.copyWith(fontSize: 22),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: c.textPrimary,
+                      ),
+                      cursorColor: SColors.primary,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
                         counterText: '',
                         filled: true,
-                        fillColor: AppColors.cardBg,
+                        fillColor: c.inputBg,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: AppColors.darkGrey,
+                          borderSide: BorderSide(
+                            color: c.border,
                             width: 1,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(
-                            color: AppColors.teal,
+                            color: SColors.primary,
                             width: 2,
                           ),
                         ),
@@ -252,7 +267,6 @@ class _OtpScreenState extends State<OtpScreen> {
                         } else if (value.isEmpty && index > 0) {
                           _focusNodes[index - 1].requestFocus();
                         }
-                        // Auto-verify when all 6 digits entered
                         if (_otp.length == 6) {
                           _verifyOtp();
                         }
@@ -277,7 +291,8 @@ class _OtpScreenState extends State<OtpScreen> {
                 children: [
                   Text(
                     "Didn't receive the code? ",
-                    style: AppTextStyles.caption,
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13, color: c.textTertiary),
                   ),
                   GestureDetector(
                     onTap: _resendSeconds == 0 ? _resendOtp : null,
@@ -285,10 +300,11 @@ class _OtpScreenState extends State<OtpScreen> {
                       _resendSeconds > 0
                           ? 'Resend in ${_resendSeconds}s'
                           : 'Resend OTP',
-                      style: AppTextStyles.body.copyWith(
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
                         color: _resendSeconds > 0
-                            ? AppColors.darkGrey
-                            : AppColors.teal,
+                            ? c.border
+                            : SColors.primary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/supabase_client.dart';
+import '../../../core/theme.dart';
 import '../../../shared/widgets.dart';
 
 class PahapitTabView extends StatefulWidget {
@@ -75,13 +76,13 @@ class PahapitTabViewState extends State<PahapitTabView> {
           child: FloatingActionButton.extended(
             onPressed: () async {
               await context.push('/pahapit/new');
-              // Refresh on return
               _loadRequests();
             },
-            backgroundColor: AppColors.teal,
-            icon: const Icon(Icons.add, color: AppColors.white),
-            label: const Text('New Request',
-                style: TextStyle(color: AppColors.white)),
+            backgroundColor: SColors.primary,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: Text('New Request',
+                style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white, fontWeight: FontWeight.w600)),
           ),
         ),
       ],
@@ -89,9 +90,12 @@ class PahapitTabViewState extends State<PahapitTabView> {
   }
 
   Widget _buildBody() {
+    final c = context.sc;
+
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.teal),
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: ShimmerList(count: 4, itemHeight: 88),
       );
     }
 
@@ -100,13 +104,16 @@ class PahapitTabViewState extends State<PahapitTabView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, color: AppColors.coral, size: 48),
+            const Icon(Icons.error_outline, color: SColors.coral, size: 48),
             const SizedBox(height: 12),
-            Text(_error!, style: AppTextStyles.body),
+            Text(_error!,
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14, color: c.textSecondary)),
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: SugoBayButton(text: 'Retry', onPressed: _loadRequests),
+              child:
+                  SugoBayButton(text: 'Retry', onPressed: _loadRequests),
             ),
           ],
         ),
@@ -122,8 +129,8 @@ class PahapitTabViewState extends State<PahapitTabView> {
     }
 
     return RefreshIndicator(
-      color: AppColors.teal,
-      backgroundColor: AppColors.cardBg,
+      color: SColors.primary,
+      backgroundColor: c.cardBg,
       onRefresh: _loadRequests,
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
@@ -152,6 +159,7 @@ class _PahapitCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
     final storeName = request['store_name'] ?? 'Unknown Store';
     final description = request['items_description'] ?? '';
     final status = request['status'] ?? 'pending';
@@ -168,7 +176,11 @@ class _PahapitCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   storeName,
-                  style: AppTextStyles.subheading.copyWith(fontSize: 16),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: c.textPrimary,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -179,7 +191,8 @@ class _PahapitCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             description,
-            style: AppTextStyles.body,
+            style: GoogleFonts.plusJakartaSans(
+                fontSize: 14, color: c.textSecondary),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -187,11 +200,12 @@ class _PahapitCard extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.account_balance_wallet,
-                  size: 14, color: AppColors.gold),
+                  size: 14, color: SColors.gold),
               const SizedBox(width: 4),
               Text(
                 'Budget: \u20B1${budget.toStringAsFixed(2)}',
-                style: AppTextStyles.caption.copyWith(color: AppColors.gold),
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12, color: SColors.gold),
               ),
             ],
           ),

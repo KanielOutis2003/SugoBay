@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants.dart';
 import '../../core/supabase_client.dart';
+import '../../core/theme.dart';
 import '../../shared/widgets.dart';
 
 /// Profile setup screen shown after first login (any provider).
@@ -45,22 +47,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     final user = SupabaseService.currentUser;
     if (user == null) return;
 
-    // Pre-fill name from Google/Facebook metadata
     final meta = user.userMetadata;
     final name = meta?['full_name'] ?? meta?['name'] ?? '';
     if (name.isNotEmpty) {
       _nameController.text = name;
     }
 
-    // Pre-fill phone if signed in via phone
     final phone = user.phone;
     if (phone != null && phone.isNotEmpty) {
-      // Strip +63 prefix for display
       _phoneController.text =
           phone.startsWith('+63') ? phone.substring(3) : phone;
     }
 
-    // Check if profile already has some data
     final profile = await SupabaseService.getUserProfile();
     if (profile != null && mounted) {
       if (profile['name'] != null && profile['name'] != 'New User') {
@@ -102,7 +100,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         return;
       }
 
-      // Upsert user profile (handle_new_user trigger may have created a row)
       await SupabaseService.users().upsert({
         'id': userId,
         'name': _nameController.text.trim(),
@@ -111,7 +108,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         'email': SupabaseService.currentUser?.email,
       });
 
-      // If merchant, insert merchant record
       if (_selectedRole == 'merchant') {
         await SupabaseService.merchants().insert({
           'user_id': userId,
@@ -124,7 +120,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         });
 
         if (!mounted) return;
-        await _showApprovalDialog();
+        await _showApprovalSheet();
       }
 
       if (!mounted) return;
@@ -141,44 +137,77 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
   }
 
-  Future<void> _showApprovalDialog() async {
-    await showDialog(
+  Future<void> _showApprovalSheet() async {
+    final c = context.sc;
+
+    await showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+      isDismissible: false,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: c.cardBg,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        title: const Icon(
-          Icons.hourglass_top_rounded,
-          color: AppColors.gold,
-          size: 48,
-        ),
-        content: Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: c.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Icon(
+              Icons.hourglass_top_rounded,
+              color: SColors.gold,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
             Text(
               'Waiting for Admin Approval',
-              style: AppTextStyles.subheading,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: c.textPrimary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
               'Your merchant account has been submitted. '
               'You will be notified once approved.',
-              style: AppTextStyles.body,
+              style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14, color: c.textSecondary, height: 1.5),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: SColors.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                ),
+                child: Text('OK',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    )),
+              ),
+            ),
+            const SizedBox(height: 8),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('OK',
-                style: AppTextStyles.button.copyWith(color: AppColors.teal)),
-          ),
-        ],
       ),
     );
   }
@@ -214,12 +243,19 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
+
     return Scaffold(
-      backgroundColor: AppColors.primaryBg,
+      backgroundColor: c.bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Complete Your Profile', style: AppTextStyles.subheading),
+        title: Text('Complete Your Profile',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: c.textPrimary,
+            )),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -232,7 +268,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               children: [
                 Text(
                   'We need a few details to get you started',
-                  style: AppTextStyles.caption,
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13, color: c.textTertiary),
                 ),
                 const SizedBox(height: 24),
 
@@ -243,13 +280,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   controller: _nameController,
                   keyboardType: TextInputType.name,
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Name is required';
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Name is required';
+                    }
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
 
-                // Phone (always required)
+                // Phone
                 SugoBayTextField(
                   label: 'Phone Number',
                   hint: '9XX XXX XXXX',
@@ -261,8 +300,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     width: 60,
                     child: Text(
                       '+63',
-                      style: AppTextStyles.body.copyWith(
-                        color: AppColors.gold,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: SColors.gold,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -286,24 +325,28 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 // Role selector
                 Text(
                   'I want to be a...',
-                  style: AppTextStyles.body.copyWith(color: AppColors.gold),
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14, color: SColors.gold),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     _buildRoleCard(
+                      c: c,
                       role: 'customer',
                       label: 'Customer',
                       icon: Icons.shopping_bag_rounded,
                     ),
                     const SizedBox(width: 10),
                     _buildRoleCard(
+                      c: c,
                       role: 'rider',
                       label: 'Rider',
                       icon: Icons.delivery_dining_rounded,
                     ),
                     const SizedBox(width: 10),
                     _buildRoleCard(
+                      c: c,
                       role: 'merchant',
                       label: 'Merchant',
                       icon: Icons.storefront_rounded,
@@ -342,37 +385,42 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'Category',
-                    style: AppTextStyles.body.copyWith(color: AppColors.gold),
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14, color: SColors.gold),
                   ),
                   const SizedBox(height: 6),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: AppColors.cardBg,
+                      color: c.inputBg,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.darkGrey),
+                      border: Border.all(color: c.border),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _selectedCategory,
-                        dropdownColor: AppColors.cardBg,
+                        dropdownColor: c.cardBg,
                         isExpanded: true,
-                        style: const TextStyle(color: AppColors.white),
-                        icon: const Icon(Icons.arrow_drop_down,
-                            color: AppColors.gold),
+                        style: GoogleFonts.plusJakartaSans(
+                            color: c.textPrimary),
+                        icon: Icon(Icons.arrow_drop_down,
+                            color: SColors.gold),
                         items: _merchantCategories.map((cat) {
                           return DropdownMenuItem(
                             value: cat,
                             child: Text(
                               _formatCategory(cat),
-                              style: const TextStyle(color: AppColors.white),
+                              style: GoogleFonts.plusJakartaSans(
+                                  color: c.textPrimary),
                             ),
                           );
                         }).toList(),
                         onChanged: (value) {
                           if (value != null) {
-                            setState(() => _selectedCategory = value);
+                            setState(
+                                () => _selectedCategory = value);
                           }
                         },
                       ),
@@ -399,6 +447,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Widget _buildRoleCard({
+    required SugoColors c,
     required String role,
     required String label,
     required IconData icon,
@@ -412,11 +461,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           padding: const EdgeInsets.symmetric(vertical: 20),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppColors.teal.withAlpha(30)
-                : AppColors.cardBg,
+                ? SColors.primary.withAlpha(30)
+                : c.cardBg,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isSelected ? AppColors.teal : AppColors.darkGrey,
+              color: isSelected ? SColors.primary : c.border,
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -425,14 +474,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               Icon(
                 icon,
                 size: 32,
-                color: isSelected ? AppColors.teal : AppColors.white,
+                color: isSelected ? SColors.primary : c.textPrimary,
               ),
               const SizedBox(height: 8),
               Text(
                 label,
-                style: AppTextStyles.caption.copyWith(
-                  color: isSelected ? AppColors.teal : AppColors.white,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  color:
+                      isSelected ? SColors.primary : c.textPrimary,
+                  fontWeight:
+                      isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ],

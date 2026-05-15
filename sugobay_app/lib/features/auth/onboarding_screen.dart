@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/constants.dart';
+import '../../core/theme.dart';
 import '../../shared/widgets.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -55,19 +56,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _finish() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_seen_onboarding', true);
-    if (mounted) context.go('/login');
+    if (mounted) context.go('/landing');
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
     final isLastPage = _currentPage == _pages.length - 1;
 
     return Scaffold(
-      backgroundColor: AppColors.primaryBg,
+      backgroundColor: c.bg,
       body: SafeArea(
         child: Column(
           children: [
-            // ── Skip button ──────────────────────────────────────
+            // Skip button
             Align(
               alignment: Alignment.topRight,
               child: Padding(
@@ -76,8 +78,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   onPressed: _finish,
                   child: Text(
                     'Skip',
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.teal,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: SColors.primary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -85,7 +87,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
 
-            // ── Page content ─────────────────────────────────────
+            // Page content
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
@@ -97,25 +99,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
 
-            // ── Dot indicators ───────────────────────────────────
+            // Dot indicators
             Padding(
               padding: const EdgeInsets.only(bottom: 24),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
                   _pages.length,
-                  (index) => _DotIndicator(isActive: index == _currentPage),
+                  (index) =>
+                      _DotIndicator(isActive: index == _currentPage),
                 ),
               ),
             ),
 
-            // ── Action button ────────────────────────────────────
+            // Action button
             Padding(
               padding: const EdgeInsets.fromLTRB(32, 0, 32, 40),
               child: SugoBayButton(
                 text: isLastPage ? 'Get Started' : 'Next',
                 onPressed: isLastPage ? _finish : _goToNextPage,
-                color: isLastPage ? AppColors.coral : AppColors.teal,
+                color: isLastPage ? SColors.coral : SColors.primary,
               ),
             ),
           ],
@@ -124,10 +127,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Data model for a single onboarding page
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _OnboardingPageData {
   final IconData icon;
@@ -143,10 +142,6 @@ class _OnboardingPageData {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Single page layout
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _OnboardingPageView extends StatelessWidget {
   final _OnboardingPageData page;
 
@@ -154,18 +149,28 @@ class _OnboardingPageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gradient =
-        page.useGoldGradient ? AppColors.goldGradient : AppColors.primaryGradient;
+    final c = context.sc;
 
-    final glowColor =
-        page.useGoldGradient ? AppColors.accentGold : AppColors.teal;
+    final gradient = page.useGoldGradient
+        ? const LinearGradient(
+            colors: [SColors.gold, Color(0xFFD4A84B)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : const LinearGradient(
+            colors: [SColors.primary, Color(0xFF1E7A6E)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+
+    final glowColor = page.useGoldGradient ? SColors.gold : SColors.primary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Icon circle with teal/gold gradient background
+          // Icon circle with gradient background
           Container(
             width: 160,
             height: 160,
@@ -180,11 +185,7 @@ class _OnboardingPageView extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(
-              page.icon,
-              size: 80,
-              color: AppColors.white,
-            ),
+            child: Icon(page.icon, size: 80, color: Colors.white),
           ),
 
           const SizedBox(height: 48),
@@ -192,7 +193,11 @@ class _OnboardingPageView extends StatelessWidget {
           // Title
           Text(
             page.title,
-            style: AppTextStyles.heading.copyWith(fontSize: 28),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: c.textPrimary,
+            ),
             textAlign: TextAlign.center,
           ),
 
@@ -201,8 +206,8 @@ class _OnboardingPageView extends StatelessWidget {
           // Description
           Text(
             page.description,
-            style: AppTextStyles.body.copyWith(
-              color: Colors.white60,
+            style: GoogleFonts.plusJakartaSans(
+              color: c.textSecondary,
               height: 1.65,
               fontSize: 15,
             ),
@@ -214,10 +219,6 @@ class _OnboardingPageView extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Animated pill dot indicator
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _DotIndicator extends StatelessWidget {
   final bool isActive;
 
@@ -225,6 +226,8 @@ class _DotIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -232,7 +235,7 @@ class _DotIndicator extends StatelessWidget {
       width: isActive ? 24 : 8,
       height: 8,
       decoration: BoxDecoration(
-        color: isActive ? AppColors.teal : AppColors.darkGrey,
+        color: isActive ? SColors.primary : c.border,
         borderRadius: BorderRadius.circular(4),
       ),
     );

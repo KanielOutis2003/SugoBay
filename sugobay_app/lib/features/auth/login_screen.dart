@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants.dart';
 import '../../core/supabase_client.dart';
+import '../../core/theme.dart';
 import '../../shared/widgets.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -17,17 +19,18 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String _loadingMethod = '';
+  bool _rememberMe = false;
 
   // Email form
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _emailFormKey = GlobalKey<FormState>();
   bool _showEmailForm = false;
+  bool _obscurePassword = true;
 
   // Phone form
   final _phoneController = TextEditingController();
   final _phoneFormKey = GlobalKey<FormState>();
-  bool _showPhoneForm = false;
 
   @override
   void dispose() {
@@ -56,7 +59,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final role = profile['role'] as String;
 
-      // Check merchant approval status before allowing access
       if (role == 'merchant') {
         final userId = SupabaseService.auth.currentUser!.id;
         final merchantRes = await SupabaseService.client
@@ -66,7 +68,6 @@ class _LoginScreenState extends State<LoginScreen> {
             .maybeSingle();
 
         if (merchantRes == null || merchantRes['is_approved'] != true) {
-          // Sign them out — they can't access the app yet
           await SupabaseService.auth.signOut();
           if (!mounted) return;
           _showApprovalPendingDialog();
@@ -98,11 +99,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showApprovalPendingDialog() {
+    final c = context.sc;
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (ctx) => Dialog(
-        backgroundColor: AppColors.cardBg,
+        backgroundColor: c.cardBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(28),
@@ -112,34 +114,26 @@ class _LoginScreenState extends State<LoginScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.gold.withValues(alpha: 0.15),
+                  color: SColors.gold.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.hourglass_top_rounded, color: AppColors.gold, size: 40),
+                child: const Icon(Icons.hourglass_top_rounded, color: SColors.gold, size: 40),
               ),
               const SizedBox(height: 20),
-              Text(
-                'Pending Approval',
-                style: AppTextStyles.heading.copyWith(fontSize: 20, color: Colors.white),
-              ),
+              Text('Pending Approval',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: c.textPrimary)),
               const SizedBox(height: 12),
               Text(
                 'Your merchant account is still being reviewed by admin. You will be notified once approved.',
                 textAlign: TextAlign.center,
-                style: AppTextStyles.body.copyWith(color: Colors.grey[400], height: 1.5),
+                style: GoogleFonts.plusJakartaSans(fontSize: 14, color: c.textSecondary, height: 1.5),
               ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.teal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: const Text('OK'),
                 ),
               ),
             ],
@@ -150,11 +144,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showErrorDialog(String title, String message, IconData icon, Color color) {
+    final c = context.sc;
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (ctx) => Dialog(
-        backgroundColor: AppColors.cardBg,
+        backgroundColor: c.cardBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(28),
@@ -170,28 +165,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Icon(icon, color: color, size: 40),
               ),
               const SizedBox(height: 20),
-              Text(
-                title,
-                style: AppTextStyles.heading.copyWith(fontSize: 20, color: Colors.white),
-              ),
+              Text(title,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: c.textPrimary)),
               const SizedBox(height: 12),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.body.copyWith(color: Colors.grey[400], height: 1.5),
-              ),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 14, color: c.textSecondary, height: 1.5)),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.teal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: const Text('OK'),
                 ),
               ),
             ],
@@ -201,13 +186,86 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ─── Terms of Service ────────────────────────────────────────────
+  void _showEmailNotConfirmedDialog(String email) {
+    final c = context.sc;
+    bool resending = false;
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: c.cardBg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: SColors.coral.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.email_outlined, color: SColors.coral, size: 40),
+                ),
+                const SizedBox(height: 20),
+                Text('Email Not Confirmed',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: c.textPrimary)),
+                const SizedBox(height: 12),
+                Text(
+                  'Please confirm your email before signing in. Check your inbox for a confirmation link.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 14, color: c.textSecondary, height: 1.5),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: resending
+                        ? null
+                        : () async {
+                            setDialogState(() => resending = true);
+                            try {
+                              await SupabaseService.auth.resend(
+                                type: OtpType.signup,
+                                email: email,
+                              );
+                              if (ctx.mounted) {
+                                Navigator.of(ctx).pop();
+                                showSugoBaySnackBar(context, 'Confirmation email resent! Check your inbox.');
+                              }
+                            } catch (e) {
+                              setDialogState(() => resending = false);
+                              if (ctx.mounted) {
+                                showSugoBaySnackBar(context, 'Failed to resend: $e', isError: true);
+                              }
+                            }
+                          },
+                    child: resending
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Resend Confirmation Email'),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text('Close', style: TextStyle(color: c.textTertiary)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _showTermsDialog() {
+    final c = context.sc;
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: AppColors.cardBg,
+        backgroundColor: c.cardBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -215,10 +273,8 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Terms of Service',
-                style: AppTextStyles.heading.copyWith(fontSize: 20, color: Colors.white),
-              ),
+              Text('Terms of Service',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: c.textPrimary)),
               const SizedBox(height: 16),
               SizedBox(
                 height: 300,
@@ -243,7 +299,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     '8. Changes\n'
                     'We may update these terms at any time. Continued use of the app constitutes acceptance of the updated terms.\n\n'
                     'For questions, contact us through the app.',
-                    style: AppTextStyles.body.copyWith(color: Colors.grey[400], height: 1.6, fontSize: 13),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 13, color: c.textSecondary, height: 1.6),
                   ),
                 ),
               ),
@@ -252,13 +308,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.teal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: const Text('Close'),
                 ),
               ),
             ],
@@ -268,13 +318,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ─── About ──────────────────────────────────────────────────────
-
   void _showAboutDialog() {
+    final c = context.sc;
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: AppColors.cardBg,
+        backgroundColor: c.cardBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(28),
@@ -283,38 +332,29 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               Image.asset('assets/images/logo.png', width: 140, fit: BoxFit.contain),
               const SizedBox(height: 16),
-              Text(
-                'Version ${AppConstants.version}',
-                style: AppTextStyles.caption.copyWith(color: Colors.grey[500]),
-              ),
+              Text('Version ${AppConstants.version}',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: c.textTertiary)),
               const SizedBox(height: 20),
               Text(
                 'SugoBay is a food delivery and errand service platform built for the people of Ubay, Bohol. '
                 'Order food from local merchants or request "Pahapit" errands — we\'ll handle the rest!',
                 textAlign: TextAlign.center,
-                style: AppTextStyles.body.copyWith(color: Colors.grey[400], height: 1.5, fontSize: 13),
+                style: GoogleFonts.plusJakartaSans(fontSize: 13, color: c.textSecondary, height: 1.5),
               ),
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBg,
+                  color: c.inputBg,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   children: [
-                    Text(
-                      'Developed by',
-                      style: AppTextStyles.caption.copyWith(color: Colors.grey[600], fontSize: 11),
-                    ),
+                    Text('Developed by',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: c.textTertiary)),
                     const SizedBox(height: 4),
-                    Text(
-                      'Jecu Cutanda',
-                      style: AppTextStyles.subheading.copyWith(
-                        color: AppColors.gold,
-                        fontSize: 16,
-                      ),
-                    ),
+                    Text('Jecu Cutanda',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: SColors.gold)),
                   ],
                 ),
               ),
@@ -323,13 +363,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.teal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: const Text('Close'),
                 ),
               ),
             ],
@@ -438,13 +472,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       if (e.message.toLowerCase().contains('invalid') ||
           e.message.toLowerCase().contains('not found')) {
-        showSugoBaySnackBar(
-          context,
-          'No account found. Please sign up first.',
-          isError: true,
-        );
+        showSugoBaySnackBar(context, 'No account found. Please sign up first.', isError: true);
       } else if (e.message.toLowerCase().contains('email not confirmed')) {
-        // Check if this is a merchant via an RPC function (bypasses RLS)
         final email = _emailController.text.trim();
         String? role;
         bool? isApproved;
@@ -456,34 +485,24 @@ class _LoginScreenState extends State<LoginScreen> {
             role = res['role'] as String?;
             isApproved = res['is_approved'] as bool?;
           } else if (res is String) {
-            // Old function format — just role string
             role = res;
           }
-        } catch (_) {
-          // Function may not exist yet — fall through
-        }
+        } catch (_) {}
 
         if (!mounted) return;
         if (role == 'merchant') {
           if (isApproved == true) {
-            // Merchant is approved but email still not confirmed —
-            // this shouldn't happen after admin fix, but handle gracefully
             _showErrorDialog(
               'Account Issue',
               'Your merchant account is approved but there was a sign-in issue. Please contact support or try again.',
               Icons.warning_amber_rounded,
-              AppColors.gold,
+              SColors.gold,
             );
           } else {
             _showApprovalPendingDialog();
           }
         } else {
-          _showErrorDialog(
-            'Email Not Confirmed',
-            'Please confirm your email before signing in. Check your inbox for a confirmation link.',
-            Icons.email_outlined,
-            AppColors.coral,
-          );
+          _showEmailNotConfirmedDialog(email);
         }
       } else {
         showSugoBaySnackBar(context, e.message, isError: true);
@@ -521,360 +540,490 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
+
     return Scaffold(
-      backgroundColor: AppColors.primaryBg,
+      backgroundColor: c.bg,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
-          child: Column(
-            children: [
-              const SizedBox(height: 30),
-              // Logo
-              Image.asset(
-                'assets/images/logo.png',
-                width: 200,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(height: 40),
-
-              // ─── Social Buttons ─────────────────────────────────
-              _buildGoogleButton(),
-              const SizedBox(height: 12),
-              _buildSocialButton(
-                label: 'Continue with Facebook',
-                icon: Icons.facebook_rounded,
-                color: const Color(0xFF1877F2),
-                textColor: Colors.white,
-                isLoading: _isLoading && _loadingMethod == 'facebook',
-                onPressed: _isLoading ? null : _signInWithFacebook,
-              ),
-              const SizedBox(height: 20),
-
-              // Divider
-              Row(
-                children: [
-                  Expanded(child: Divider(color: AppColors.darkGrey)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('or', style: AppTextStyles.caption),
-                  ),
-                  Expanded(child: Divider(color: AppColors.darkGrey)),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // ─── Email Section ──────────────────────────────────
-              if (!_showEmailForm)
-                _buildSocialButton(
-                  label: 'Continue with Email',
-                  icon: Icons.email_rounded,
-                  color: AppColors.cardBg,
-                  textColor: Colors.white,
-                  borderColor: AppColors.darkGrey,
-                  onPressed: _isLoading
-                      ? null
-                      : () => setState(() {
-                            _showEmailForm = true;
-                            _showPhoneForm = false;
-                          }),
-                ),
-
-              if (_showEmailForm)
-                Form(
-                  key: _emailFormKey,
-                  child: Column(
-                    children: [
-                      SugoBayTextField(
-                        label: 'Email',
-                        hint: 'you@example.com',
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        textCapitalization: TextCapitalization.none,
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Email required';
-                          if (!v.contains('@')) return 'Invalid email';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      SugoBayTextField(
-                        label: 'Password',
-                        hint: 'Enter password',
-                        controller: _passwordController,
-                        obscureText: true,
-                        textCapitalization: TextCapitalization.none,
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Password required';
-                          if (v.length < 6) return 'Min 6 characters';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      SugoBayButton(
-                        text: 'Sign In',
-                        onPressed: _signInWithEmail,
-                        isLoading: _isLoading && _loadingMethod == 'email',
-                      ),
-                    ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                const SizedBox(height: 8),
+                // Back button
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: () => context.canPop() ? context.pop() : context.go('/landing'),
+                    icon: Icon(Icons.arrow_back, color: c.textPrimary),
+                    padding: EdgeInsets.zero,
                   ),
                 ),
 
-              if (!_showEmailForm) const SizedBox(height: 12),
+                const SizedBox(height: 24),
 
-              // ─── Phone Section ──────────────────────────────────
-              if (!_showPhoneForm && !_showEmailForm)
-                _buildSocialButton(
-                  label: 'Continue with Phone',
-                  icon: Icons.phone_rounded,
-                  color: AppColors.cardBg,
-                  textColor: Colors.white,
-                  borderColor: AppColors.darkGrey,
-                  onPressed: _isLoading
-                      ? null
-                      : () => setState(() {
-                            _showPhoneForm = true;
-                            _showEmailForm = false;
-                          }),
+                // Logo
+                Image.asset(
+                  'assets/images/logo.png',
+                  width: 160,
+                  fit: BoxFit.contain,
                 ),
 
-              if (_showPhoneForm)
-                Form(
-                  key: _phoneFormKey,
-                  child: Column(
-                    children: [
-                      SugoBayTextField(
-                        label: 'Phone Number',
-                        hint: '9XX XXX XXXX',
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        textCapitalization: TextCapitalization.none,
-                        prefix: Container(
-                          padding: const EdgeInsets.only(left: 14, right: 8),
-                          alignment: Alignment.center,
-                          width: 60,
-                          child: Text(
-                            '+63',
-                            style: AppTextStyles.body.copyWith(
-                              color: AppColors.gold,
-                              fontWeight: FontWeight.w600,
-                            ),
+                const SizedBox(height: 32),
+
+                // Title
+                Text(
+                  'Login to Your Account',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: c.textPrimary,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+
+                // ─── Phone Input ─────────────────────────────────
+                if (!_showEmailForm)
+                  Form(
+                    key: _phoneFormKey,
+                    child: Column(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: c.inputBg,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: c.border),
+                          ),
+                          child: Row(
+                            children: [
+                              // Country code
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('🇵🇭', style: const TextStyle(fontSize: 22)),
+                                    const SizedBox(width: 4),
+                                    Icon(Icons.keyboard_arrow_down, size: 18, color: c.textSecondary),
+                                  ],
+                                ),
+                              ),
+                              Container(width: 1, height: 28, color: c.border),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 15,
+                                    color: c.textPrimary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: '+63 9XX XXX XXXX',
+                                    hintStyle: GoogleFonts.plusJakartaSans(
+                                      fontSize: 15,
+                                      color: c.textTertiary,
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) return 'Phone number required';
+                                    final cleaned = value.trim().startsWith('0')
+                                        ? value.trim().substring(1)
+                                        : value.trim();
+                                    if (cleaned.length != 10 || !RegExp(r'^\d{10}$').hasMatch(cleaned)) {
+                                      return 'Enter a valid 10-digit phone number';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Phone number required';
-                          }
-                          final cleaned = value.trim().startsWith('0')
-                              ? value.trim().substring(1)
-                              : value.trim();
-                          if (cleaned.length != 10 ||
-                              !RegExp(r'^\d{10}$').hasMatch(cleaned)) {
-                            return 'Enter a valid 10-digit phone number';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      SugoBayButton(
-                        text: 'Send OTP',
-                        onPressed: _sendPhoneOtp,
-                        isLoading: _isLoading && _loadingMethod == 'phone',
-                      ),
-                    ],
-                  ),
-                ),
 
-              // Back button when showing forms
-              if (_showEmailForm || _showPhoneForm)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: TextButton(
-                    onPressed: () => setState(() {
-                      _showEmailForm = false;
-                      _showPhoneForm = false;
-                    }),
-                    child: Text(
-                      'Back to all options',
-                      style: AppTextStyles.caption.copyWith(color: AppColors.coral),
+                        const SizedBox(height: 16),
+
+                        // Remember me
+                        GestureDetector(
+                          onTap: () => setState(() => _rememberMe = !_rememberMe),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  color: _rememberMe ? SColors.primary : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: _rememberMe ? SColors.primary : c.border,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: _rememberMe
+                                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                    : null,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Remember me',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: c.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Sign In button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _sendPhoneOtp,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: SColors.primary,
+                              foregroundColor: Colors.white,
+                              elevation: 4,
+                              shadowColor: SColors.primary.withValues(alpha: 0.4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                            ),
+                            child: (_isLoading && _loadingMethod == 'phone')
+                                ? const SizedBox(
+                                    width: 22, height: 22,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : Text(
+                                    'Sign in',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
 
-              const SizedBox(height: 20),
+                // ─── Email Form ──────────────────────────────────
+                if (_showEmailForm)
+                  Form(
+                    key: _emailFormKey,
+                    child: Column(
+                      children: [
+                        // Email input
+                        Container(
+                          decoration: BoxDecoration(
+                            color: c.inputBg,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: c.border),
+                          ),
+                          child: TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            textCapitalization: TextCapitalization.none,
+                            style: GoogleFonts.plusJakartaSans(fontSize: 15, color: c.textPrimary),
+                            decoration: InputDecoration(
+                              hintText: 'Email',
+                              hintStyle: GoogleFonts.plusJakartaSans(fontSize: 15, color: c.textTertiary),
+                              prefixIcon: Icon(Icons.email_outlined, color: c.textTertiary, size: 20),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'Email required';
+                              if (!v.contains('@')) return 'Invalid email';
+                              return null;
+                            },
+                          ),
+                        ),
 
-              // ─── Sign Up Link ──────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "Don't have an account? ",
-                    style: AppTextStyles.caption,
-                  ),
-                  GestureDetector(
-                    onTap: () => context.push('/signup'),
-                    child: Text(
-                      'Sign Up',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.teal,
-                        fontWeight: FontWeight.w700,
-                      ),
+                        const SizedBox(height: 12),
+
+                        // Password input
+                        Container(
+                          decoration: BoxDecoration(
+                            color: c.inputBg,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: c.border),
+                          ),
+                          child: TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            textCapitalization: TextCapitalization.none,
+                            style: GoogleFonts.plusJakartaSans(fontSize: 15, color: c.textPrimary),
+                            decoration: InputDecoration(
+                              hintText: 'Password',
+                              hintStyle: GoogleFonts.plusJakartaSans(fontSize: 15, color: c.textTertiary),
+                              prefixIcon: Icon(Icons.lock_outline, color: c.textTertiary, size: 20),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                  color: c.textTertiary,
+                                  size: 20,
+                                ),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'Password required';
+                              if (v.length < 6) return 'Min 6 characters';
+                              return null;
+                            },
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Forgot password + Remember me row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            GestureDetector(
+                              onTap: () => setState(() => _rememberMe = !_rememberMe),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: _rememberMe ? SColors.primary : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(5),
+                                      border: Border.all(
+                                        color: _rememberMe ? SColors.primary : c.border,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: _rememberMe
+                                        ? const Icon(Icons.check, size: 13, color: Colors.white)
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text('Remember me',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: c.textPrimary)),
+                                ],
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => context.push('/forgot-password'),
+                              child: Text(
+                                'Forgot Password?',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 13,
+                                  color: SColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Sign In button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _signInWithEmail,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: SColors.primary,
+                              foregroundColor: Colors.white,
+                              elevation: 4,
+                              shadowColor: SColors.primary.withValues(alpha: 0.4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                            ),
+                            child: (_isLoading && _loadingMethod == 'email')
+                                ? const SizedBox(
+                                    width: 22, height: 22,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : Text(
+                                    'Sign in',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600),
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
 
-              const SizedBox(height: 12),
+                const SizedBox(height: 28),
 
-              // ─── Terms & About ───────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  GestureDetector(
-                    onTap: () => _showTermsDialog(),
-                    child: Text(
-                      'Terms of Service',
-                      style: AppTextStyles.caption.copyWith(
-                        fontSize: 11,
-                        color: AppColors.teal,
-                        decoration: TextDecoration.underline,
-                        decorationColor: AppColors.teal,
+                // ─── Divider ─────────────────────────────────────
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: c.divider)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'or continue with',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 13, color: c.textTertiary),
                       ),
                     ),
-                  ),
-                  Text('  •  ', style: AppTextStyles.caption.copyWith(fontSize: 11)),
-                  GestureDetector(
-                    onTap: () => _showAboutDialog(),
-                    child: Text(
-                      'About',
-                      style: AppTextStyles.caption.copyWith(
-                        fontSize: 11,
-                        color: AppColors.teal,
-                        decoration: TextDecoration.underline,
-                        decorationColor: AppColors.teal,
+                    Expanded(child: Divider(color: c.divider)),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // ─── Social Icons Row ────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _socialIconButton(
+                      icon: Icons.facebook_rounded,
+                      color: const Color(0xFF1877F2),
+                      isLoading: _isLoading && _loadingMethod == 'facebook',
+                      onTap: _isLoading ? null : _signInWithFacebook,
+                      c: c,
+                    ),
+                    const SizedBox(width: 16),
+                    _socialIconButton(
+                      customChild: SizedBox(
+                        width: 22, height: 22,
+                        child: CustomPaint(painter: _GoogleLogoPainter()),
+                      ),
+                      isLoading: _isLoading && _loadingMethod == 'google',
+                      onTap: _isLoading ? null : _signInWithGoogle,
+                      c: c,
+                    ),
+                    const SizedBox(width: 16),
+                    _socialIconButton(
+                      icon: _showEmailForm ? Icons.phone_rounded : Icons.email_rounded,
+                      color: c.textPrimary,
+                      isLoading: false,
+                      onTap: _isLoading
+                          ? null
+                          : () => setState(() {
+                                _showEmailForm = !_showEmailForm;
+                              }),
+                      c: c,
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 36),
+
+                // ─── Sign Up Link ────────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Don't have an account?  ",
+                      style: GoogleFonts.plusJakartaSans(fontSize: 14, color: c.textSecondary),
+                    ),
+                    GestureDetector(
+                      onTap: () => context.push('/signup'),
+                      child: Text(
+                        'Sign up',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: SColors.primary,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
 
-              const SizedBox(height: 16),
-              Text(
-                'Powered by Jecu Cutanda',
-                style: AppTextStyles.caption.copyWith(
-                  fontSize: 10,
-                  color: Colors.white30,
-                  letterSpacing: 0.5,
+                const SizedBox(height: 16),
+
+                // ─── Terms & About ───────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: _showTermsDialog,
+                      child: Text(
+                        'Terms of Service',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: SColors.primary,
+                          decoration: TextDecoration.underline,
+                          decorationColor: SColors.primary,
+                        ),
+                      ),
+                    ),
+                    Text('  •  ',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: c.textTertiary)),
+                    GestureDetector(
+                      onTap: _showAboutDialog,
+                      child: Text(
+                        'About',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: SColors.primary,
+                          decoration: TextDecoration.underline,
+                          decorationColor: SColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'v${AppConstants.version}',
-                style: AppTextStyles.caption.copyWith(
-                  fontSize: 10,
-                  color: Colors.white24,
+
+                const SizedBox(height: 16),
+                Text(
+                  'Powered by Jecu Cutanda',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, color: c.textTertiary, letterSpacing: 0.5),
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  'v${AppConstants.version}',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, color: c.textTertiary),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // ─── Google Button with proper "G" logo ─────────────────────────
-  Widget _buildGoogleButton() {
-    final isLoading = _isLoading && _loadingMethod == 'google';
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _signInWithGoogle,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black87,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-        child: isLoading
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.black87,
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Custom Google "G" logo
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CustomPaint(painter: _GoogleLogoPainter()),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Continue with Google',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget _buildSocialButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required Color textColor,
-    Color? borderColor,
-    bool isLoading = false,
-    VoidCallback? onPressed,
+  Widget _socialIconButton({
+    IconData? icon,
+    Color? color,
+    Widget? customChild,
+    required bool isLoading,
+    required VoidCallback? onTap,
+    required SugoColors c,
   }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: textColor,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: borderColor != null
-                ? BorderSide(color: borderColor)
-                : BorderSide.none,
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 72,
+        height: 56,
+        decoration: BoxDecoration(
+          color: c.cardBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: c.border),
         ),
-        child: isLoading
-            ? SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: textColor,
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 24),
-                  const SizedBox(width: 10),
-                  Text(label,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      )),
-                ],
-              ),
+        child: Center(
+          child: isLoading
+              ? SizedBox(
+                  width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: c.textSecondary),
+                )
+              : customChild ?? Icon(icon, color: color, size: 26),
+        ),
       ),
     );
   }
@@ -890,7 +1039,6 @@ class _GoogleLogoPainter extends CustomPainter {
     final double cy = h / 2;
     final double r = w * 0.45;
 
-    // Blue arc (top-right)
     final bluePaint = Paint()
       ..color = const Color(0xFF4285F4)
       ..style = PaintingStyle.stroke
@@ -899,13 +1047,9 @@ class _GoogleLogoPainter extends CustomPainter {
 
     canvas.drawArc(
       Rect.fromCircle(center: Offset(cx, cy), radius: r),
-      -0.9, // start angle
-      1.8,  // sweep angle
-      false,
-      bluePaint,
+      -0.9, 1.8, false, bluePaint,
     );
 
-    // Green arc (bottom-right)
     final greenPaint = Paint()
       ..color = const Color(0xFF34A853)
       ..style = PaintingStyle.stroke
@@ -914,13 +1058,9 @@ class _GoogleLogoPainter extends CustomPainter {
 
     canvas.drawArc(
       Rect.fromCircle(center: Offset(cx, cy), radius: r),
-      0.9,
-      1.2,
-      false,
-      greenPaint,
+      0.9, 1.2, false, greenPaint,
     );
 
-    // Yellow arc (bottom-left)
     final yellowPaint = Paint()
       ..color = const Color(0xFFFBBC05)
       ..style = PaintingStyle.stroke
@@ -929,13 +1069,9 @@ class _GoogleLogoPainter extends CustomPainter {
 
     canvas.drawArc(
       Rect.fromCircle(center: Offset(cx, cy), radius: r),
-      2.1,
-      1.0,
-      false,
-      yellowPaint,
+      2.1, 1.0, false, yellowPaint,
     );
 
-    // Red arc (top-left)
     final redPaint = Paint()
       ..color = const Color(0xFFEA4335)
       ..style = PaintingStyle.stroke
@@ -944,13 +1080,9 @@ class _GoogleLogoPainter extends CustomPainter {
 
     canvas.drawArc(
       Rect.fromCircle(center: Offset(cx, cy), radius: r),
-      3.1,
-      1.35,
-      false,
-      redPaint,
+      3.1, 1.35, false, redPaint,
     );
 
-    // Horizontal bar of the "G"
     final barPaint = Paint()
       ..color = const Color(0xFF4285F4)
       ..style = PaintingStyle.fill;

@@ -1,10 +1,24 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'YOUR_SUPABASE_URL'
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SERVICE_ROLE_KEY'
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'YOUR_ANON_KEY'
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || ''
 
-// IMPORTANT: React admin uses SERVICE ROLE KEY only
-export const supabase = createClient(supabaseUrl, supabaseServiceKey)
+// Public client — uses anon key, respects RLS, requires auth
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Admin client — uses service role key, bypasses RLS (for admin operations only)
+// This is safe because the admin panel is behind authentication
+// Uses separate storage key and disabled auto-refresh to prevent auth lock conflicts
+export const supabaseAdmin = supabaseServiceKey
+  ? createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        storageKey: 'sb-admin-auth-token',
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+  : supabase
 
 // Helper types
 export interface User {
@@ -31,6 +45,7 @@ export interface Merchant {
   is_active: boolean
   is_approved: boolean
   subscription_plan: string
+  subscription_expires_at: string | null
   rating: number
   total_orders: number
   created_at: string

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants.dart';
 import '../../core/supabase_client.dart';
+import '../../core/theme.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -45,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen>
       final prefs = await SharedPreferences.getInstance();
       final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
       if (!mounted) return;
-      context.go(hasSeenOnboarding ? '/login' : '/onboarding');
+      context.go(hasSeenOnboarding ? '/landing' : '/onboarding');
       return;
     }
 
@@ -53,7 +55,6 @@ class _SplashScreenState extends State<SplashScreen>
       final profile = await SupabaseService.getUserProfile();
       if (!mounted) return;
 
-      // No profile or incomplete → profile setup
       if (profile == null ||
           profile['role'] == null ||
           profile['phone'] == null) {
@@ -64,7 +65,7 @@ class _SplashScreenState extends State<SplashScreen>
       _routeByRole(profile);
     } catch (e) {
       if (!mounted) return;
-      context.go('/login');
+      context.go('/landing');
     }
   }
 
@@ -95,23 +96,24 @@ class _SplashScreenState extends State<SplashScreen>
     }
     await SupabaseService.auth.signOut();
     if (!mounted) return;
-    context.go('/login');
+    context.go('/landing');
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        color: AppColors.primaryBg,
+        color: c.bg,
         child: Center(
           child: FadeTransition(
             opacity: _fadeAnim,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Logo
                 Image.asset(
                   'assets/images/logo.png',
                   width: 220,
@@ -120,8 +122,8 @@ class _SplashScreenState extends State<SplashScreen>
                 const SizedBox(height: 16),
                 Text(
                   AppConstants.tagline,
-                  style: const TextStyle(
-                    color: Colors.white38,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: c.textTertiary,
                     fontSize: 13,
                     letterSpacing: 0.5,
                   ),
@@ -132,7 +134,7 @@ class _SplashScreenState extends State<SplashScreen>
                   height: 28,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: AppColors.gold,
+                    color: SColors.gold,
                   ),
                 ),
               ],

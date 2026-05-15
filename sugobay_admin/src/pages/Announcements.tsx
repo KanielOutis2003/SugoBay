@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabaseAdmin } from '../lib/supabase'
 import type { Announcement } from '../lib/supabase'
 
 export default function Announcements() {
@@ -14,7 +14,7 @@ export default function Announcements() {
 
   async function loadAnnouncements() {
     setLoading(true)
-    const { data } = await supabase.from('announcements').select('*').order('sent_at', { ascending: false }).limit(50)
+    const { data } = await supabaseAdmin.from('announcements').select('*').order('sent_at', { ascending: false }).limit(50)
     setAnnouncements(data || [])
     setLoading(false)
   }
@@ -22,7 +22,7 @@ export default function Announcements() {
   async function send() {
     if (!title.trim() || !message.trim()) return alert('Title and message required')
     setSending(true)
-    await supabase.from('announcements').insert({
+    await supabaseAdmin.from('announcements').insert({
       title: title.trim(),
       message: message.trim(),
       target_role: targetRole,
@@ -36,7 +36,7 @@ export default function Announcements() {
 
   async function deleteAnnouncement(id: string) {
     if (!confirm('Delete this announcement?')) return
-    await supabase.from('announcements').delete().eq('id', id)
+    await supabaseAdmin.from('announcements').delete().eq('id', id)
     loadAnnouncements()
   }
 

@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../core/constants.dart';
 import '../../core/supabase_client.dart';
+import '../../core/theme.dart';
 import '../../shared/widgets.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -117,27 +118,68 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _cancelOrder() async {
-    final confirmed = await showDialog<bool>(
+    final c = context.sc;
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg,
-        title: Text('Cancel Order', style: AppTextStyles.subheading),
-        content: Text(
-          'Are you sure you want to cancel this order?',
-          style: AppTextStyles.body,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: c.bg,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child:
-                const Text('No', style: TextStyle(color: Colors.white54)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Yes, Cancel',
-                style: TextStyle(color: AppColors.coral)),
-          ),
-        ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: c.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text('Cancel Order',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: c.textPrimary,
+                )),
+            const SizedBox(height: 12),
+            Text(
+              'Are you sure you want to cancel this order?',
+              style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14, color: c.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: SugoBayButton(
+                    text: 'No',
+                    onPressed: () => Navigator.pop(ctx, false),
+                    outlined: true,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SugoBayButton(
+                    text: 'Yes, Cancel',
+                    onPressed: () => Navigator.pop(ctx, true),
+                    color: SColors.coral,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(
+                height: MediaQuery.of(ctx).padding.bottom + 8),
+          ],
+        ),
       ),
     );
 
@@ -153,7 +195,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return DateFormat('MMM d, yyyy  h:mm a').format(dt.toLocal());
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildActionButtons(SugoColors c) {
     if (_order == null) return const SizedBox.shrink();
     final status = _order!['status'] ?? '';
 
@@ -164,21 +206,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             text: 'Accept Order',
             onPressed: () => _updateStatus('accepted'),
             isLoading: _isUpdating,
-            color: AppColors.teal,
+            color: SColors.primary,
           ),
         if (status == 'accepted')
           SugoBayButton(
             text: 'Start Preparing',
             onPressed: () => _updateStatus('preparing'),
             isLoading: _isUpdating,
-            color: AppColors.gold,
+            color: SColors.gold,
           ),
         if (status == 'preparing')
           SugoBayButton(
             text: 'Ready for Pickup',
             onPressed: () => _updateStatus('ready_for_pickup'),
             isLoading: _isUpdating,
-            color: AppColors.teal,
+            color: SColors.primary,
           ),
         if (status == 'pending' || status == 'accepted') ...[
           const SizedBox(height: 12),
@@ -186,7 +228,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             text: 'Cancel Order',
             onPressed: _cancelOrder,
             isLoading: _isUpdating,
-            color: AppColors.coral,
+            color: SColors.coral,
             outlined: true,
           ),
         ],
@@ -194,24 +236,27 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _buildTimestampRow(String label, String? dateStr) {
+  Widget _buildTimestampRow(String label, String? dateStr, SugoColors c) {
     if (dateStr == null) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          const Icon(Icons.access_time, size: 14, color: Colors.white38),
+          Icon(Icons.access_time, size: 14, color: c.textTertiary),
           const SizedBox(width: 8),
-          Text(label, style: AppTextStyles.caption),
+          Text(label,
+              style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12, color: c.textTertiary)),
           const Spacer(),
           Text(_formatDateTime(dateStr),
-              style: AppTextStyles.caption.copyWith(color: Colors.white70)),
+              style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12, color: c.textSecondary)),
         ],
       ),
     );
   }
 
-  Widget _buildTimestamps() {
+  Widget _buildTimestamps(SugoColors c) {
     if (_order == null) return const SizedBox.shrink();
 
     return SugoBayCard(
@@ -219,15 +264,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Status Timeline',
-              style: AppTextStyles.subheading.copyWith(fontSize: 15)),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: c.textPrimary,
+              )),
           const SizedBox(height: 12),
-          _buildTimestampRow('Created', _order!['created_at']),
-          _buildTimestampRow('Accepted', _order!['accepted_at']),
-          _buildTimestampRow('Preparing', _order!['preparing_at']),
-          _buildTimestampRow('Ready for Pickup', _order!['ready_for_pickup_at']),
-          _buildTimestampRow('Picked Up', _order!['picked_up_at']),
-          _buildTimestampRow('Delivered', _order!['delivered_at']),
-          _buildTimestampRow('Cancelled', _order!['cancelled_at']),
+          _buildTimestampRow('Created', _order!['created_at'], c),
+          _buildTimestampRow('Accepted', _order!['accepted_at'], c),
+          _buildTimestampRow('Preparing', _order!['preparing_at'], c),
+          _buildTimestampRow(
+              'Ready for Pickup', _order!['ready_for_pickup_at'], c),
+          _buildTimestampRow('Picked Up', _order!['picked_up_at'], c),
+          _buildTimestampRow('Delivered', _order!['delivered_at'], c),
+          _buildTimestampRow('Cancelled', _order!['cancelled_at'], c),
         ],
       ),
     );
@@ -235,19 +285,28 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
+
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.primaryBg,
-        body: Center(child: CircularProgressIndicator(color: AppColors.teal)),
+      return Scaffold(
+        backgroundColor: c.bg,
+        body: const Center(
+            child: CircularProgressIndicator(color: SColors.primary)),
       );
     }
 
     if (_error != null || _order == null) {
       return Scaffold(
-        backgroundColor: AppColors.primaryBg,
+        backgroundColor: c.bg,
         appBar: AppBar(
-          backgroundColor: AppColors.cardBg,
-          title: Text('Order Details', style: AppTextStyles.subheading),
+          backgroundColor: c.cardBg,
+          title: Text('Order Details',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: c.textPrimary,
+              )),
+          iconTheme: IconThemeData(color: c.textPrimary),
         ),
         body: Center(
           child: Padding(
@@ -255,13 +314,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline,
-                    size: 56, color: AppColors.coral),
+                const Icon(Icons.error_outline, size: 56,
+                    color: SColors.coral),
                 const SizedBox(height: 16),
-                Text('Failed to load order', style: AppTextStyles.subheading),
+                Text('Failed to load order',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: c.textPrimary,
+                    )),
                 const SizedBox(height: 8),
                 Text(_error ?? 'Order not found',
-                    style: AppTextStyles.caption, textAlign: TextAlign.center),
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12, color: c.textTertiary),
+                    textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 SugoBayButton(text: 'Retry', onPressed: _loadOrder),
               ],
@@ -282,10 +348,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final customerPhone = _customer?['phone'] ?? '';
 
     return Scaffold(
-      backgroundColor: AppColors.primaryBg,
+      backgroundColor: c.bg,
       appBar: AppBar(
-        backgroundColor: AppColors.cardBg,
-        title: Text('Order #$shortId', style: AppTextStyles.subheading),
+        backgroundColor: c.cardBg,
+        title: Text('Order #$shortId',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: c.textPrimary,
+            )),
+        iconTheme: IconThemeData(color: c.textPrimary),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -304,25 +376,31 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Customer',
-                      style: AppTextStyles.subheading.copyWith(fontSize: 15)),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: c.textPrimary,
+                      )),
                   const SizedBox(height: 10),
                   Row(
                     children: [
                       const Icon(Icons.person_outline,
-                          size: 18, color: AppColors.teal),
+                          size: 18, color: SColors.primary),
                       const SizedBox(width: 8),
                       Text(customerName,
-                          style: AppTextStyles.body
-                              .copyWith(color: Colors.white)),
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14, color: c.textPrimary)),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
                       const Icon(Icons.phone_outlined,
-                          size: 18, color: AppColors.teal),
+                          size: 18, color: SColors.primary),
                       const SizedBox(width: 8),
-                      Text(customerPhone, style: AppTextStyles.body),
+                      Text(customerPhone,
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14, color: c.textSecondary)),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -330,11 +408,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Icon(Icons.location_on_outlined,
-                          size: 18, color: AppColors.teal),
+                          size: 18, color: SColors.primary),
                       const SizedBox(width: 8),
                       Expanded(
-                        child:
-                            Text(deliveryAddress, style: AppTextStyles.body),
+                        child: Text(deliveryAddress,
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 14,
+                                color: c.textSecondary)),
                       ),
                     ],
                   ),
@@ -344,12 +424,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.notes,
-                            size: 18, color: AppColors.gold),
+                            size: 18, color: SColors.gold),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(notes,
-                              style: AppTextStyles.body
-                                  .copyWith(color: AppColors.gold)),
+                              style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 14,
+                                  color: SColors.gold)),
                         ),
                       ],
                     ),
@@ -365,14 +446,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Items',
-                      style: AppTextStyles.subheading.copyWith(fontSize: 15)),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: c.textPrimary,
+                      )),
                   const SizedBox(height: 10),
                   ..._items.map((item) {
                     final itemName =
                         item['menu_items']?['name'] ?? 'Item';
                     final qty = item['quantity'] ?? 1;
-                    final price = (item['price'] ?? item['menu_items']?['price'] ?? 0)
-                        .toDouble();
+                    final price =
+                        (item['price'] ?? item['menu_items']?['price'] ?? 0)
+                            .toDouble();
                     final subtotal = price * qty;
 
                     return Padding(
@@ -384,42 +470,50 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             height: 28,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: AppColors.teal.withAlpha(30),
+                              color: SColors.primary.withAlpha(30),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               '${qty}x',
-                              style: AppTextStyles.caption.copyWith(
-                                  color: AppColors.teal,
-                                  fontWeight: FontWeight.bold),
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                color: SColors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(itemName,
-                                style: AppTextStyles.body
-                                    .copyWith(color: Colors.white)),
+                                style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 14,
+                                    color: c.textPrimary)),
                           ),
                           Text(
                             '\u20B1${subtotal.toStringAsFixed(2)}',
-                            style: AppTextStyles.body
-                                .copyWith(color: AppColors.gold),
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 14, color: SColors.gold),
                           ),
                         ],
                       ),
                     );
                   }),
-                  const Divider(color: AppColors.darkGrey, height: 20),
+                  Divider(color: c.divider, height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Total',
-                          style: AppTextStyles.subheading.copyWith(fontSize: 16)),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: c.textPrimary,
+                          )),
                       Text(
                         '\u20B1${total.toStringAsFixed(2)}',
-                        style: AppTextStyles.subheading.copyWith(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 18,
-                          color: AppColors.gold,
+                          fontWeight: FontWeight.w600,
+                          color: SColors.gold,
                         ),
                       ),
                     ],
@@ -430,11 +524,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             const SizedBox(height: 14),
 
             // Timestamps
-            _buildTimestamps(),
+            _buildTimestamps(c),
             const SizedBox(height: 20),
 
             // Action buttons
-            _buildActionButtons(),
+            _buildActionButtons(c),
             const SizedBox(height: 24),
           ],
         ),

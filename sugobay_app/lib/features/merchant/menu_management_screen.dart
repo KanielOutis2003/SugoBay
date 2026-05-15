@@ -1,9 +1,10 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../core/constants.dart';
 import '../../core/supabase_client.dart';
+import '../../core/theme.dart';
 import '../../shared/widgets.dart';
 
 class MenuManagementScreen extends StatefulWidget {
@@ -79,7 +80,9 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
       if (mounted) {
         showSugoBaySnackBar(
           context,
-          newVal ? '${item['name']} is now available' : '${item['name']} marked unavailable',
+          newVal
+              ? '${item['name']} is now available'
+              : '${item['name']} marked unavailable',
         );
       }
     } catch (e) {
@@ -90,25 +93,68 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
   }
 
   Future<void> _deleteItem(Map<String, dynamic> item) async {
-    final confirmed = await showDialog<bool>(
+    final c = context.sc;
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg,
-        title: Text('Delete Item', style: AppTextStyles.subheading),
-        content: Text(
-          'Are you sure you want to delete "${item['name']}"?',
-          style: AppTextStyles.body,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: c.bg,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: AppColors.coral)),
-          ),
-        ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: c.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text('Delete Item',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: c.textPrimary,
+                )),
+            const SizedBox(height: 12),
+            Text(
+              'Are you sure you want to delete "${item['name']}"?',
+              style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14, color: c.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: SugoBayButton(
+                    text: 'Cancel',
+                    onPressed: () => Navigator.pop(ctx, false),
+                    outlined: true,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SugoBayButton(
+                    text: 'Delete',
+                    onPressed: () => Navigator.pop(ctx, true),
+                    color: SColors.coral,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(
+                height: MediaQuery.of(ctx).padding.bottom + 8),
+          ],
+        ),
       ),
     );
 
@@ -143,7 +189,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     );
   }
 
-  Widget _buildItemTile(Map<String, dynamic> item) {
+  Widget _buildItemTile(Map<String, dynamic> item, SugoColors c) {
     final name = item['name'] ?? '';
     final price = (item['price'] ?? 0).toDouble();
     final imageUrl = item['image_url'] as String?;
@@ -156,13 +202,12 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.cardBg,
+          color: c.cardBg,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.darkGrey.withAlpha(128)),
+          border: Border.all(color: c.border),
         ),
         child: Row(
           children: [
-            // Image thumbnail
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: SizedBox(
@@ -173,55 +218,58 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                         imageUrl: imageUrl,
                         fit: BoxFit.cover,
                         placeholder: (_, __) => Container(
-                          color: AppColors.darkGrey,
-                          child: const Icon(Icons.fastfood, color: Colors.white24),
+                          color: c.inputBg,
+                          child: Icon(Icons.fastfood,
+                              color: c.textTertiary),
                         ),
                         errorWidget: (_, __, ___) => Container(
-                          color: AppColors.darkGrey,
-                          child: const Icon(Icons.broken_image, color: Colors.white24),
+                          color: c.inputBg,
+                          child: Icon(Icons.broken_image,
+                              color: c.textTertiary),
                         ),
                       )
                     : Container(
-                        color: AppColors.darkGrey,
-                        child: const Icon(Icons.fastfood, color: Colors.white24),
+                        color: c.inputBg,
+                        child: Icon(Icons.fastfood,
+                            color: c.textTertiary),
                       ),
               ),
             ),
             const SizedBox(width: 12),
-            // Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     name,
-                    style: AppTextStyles.body.copyWith(
-                      color: Colors.white,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14,
+                      color: c.textPrimary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '\u20B1${price.toStringAsFixed(2)}',
-                    style: AppTextStyles.body.copyWith(color: AppColors.gold),
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14, color: SColors.gold),
                   ),
                 ],
               ),
             ),
-            // Availability toggle
             Column(
               children: [
                 Switch(
                   value: isAvailable,
                   onChanged: (_) => _toggleAvailability(item),
-                  activeThumbColor: AppColors.success,
-                  inactiveThumbColor: AppColors.coral,
+                  activeThumbColor: SColors.success,
+                  inactiveThumbColor: SColors.coral,
                 ),
                 Text(
                   isAvailable ? 'Available' : 'Unavailable',
-                  style: AppTextStyles.caption.copyWith(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 10,
-                    color: isAvailable ? AppColors.success : AppColors.coral,
+                    color: isAvailable ? SColors.success : SColors.coral,
                   ),
                 ),
               ],
@@ -234,19 +282,28 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
+
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.primaryBg,
-        body: Center(child: CircularProgressIndicator(color: AppColors.teal)),
+      return Scaffold(
+        backgroundColor: c.bg,
+        body: const Center(
+            child: CircularProgressIndicator(color: SColors.primary)),
       );
     }
 
     if (_error != null) {
       return Scaffold(
-        backgroundColor: AppColors.primaryBg,
+        backgroundColor: c.bg,
         appBar: AppBar(
-          backgroundColor: AppColors.cardBg,
-          title: Text('Menu Management', style: AppTextStyles.subheading),
+          backgroundColor: c.cardBg,
+          title: Text('Menu Management',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: c.textPrimary,
+              )),
+          iconTheme: IconThemeData(color: c.textPrimary),
         ),
         body: Center(
           child: Padding(
@@ -254,11 +311,20 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, size: 56, color: AppColors.coral),
+                const Icon(Icons.error_outline, size: 56,
+                    color: SColors.coral),
                 const SizedBox(height: 16),
-                Text('Failed to load menu', style: AppTextStyles.subheading),
+                Text('Failed to load menu',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: c.textPrimary,
+                    )),
                 const SizedBox(height: 8),
-                Text(_error!, style: AppTextStyles.caption, textAlign: TextAlign.center),
+                Text(_error!,
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12, color: c.textTertiary),
+                    textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 SugoBayButton(text: 'Retry', onPressed: _loadData),
               ],
@@ -269,16 +335,25 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.primaryBg,
+      backgroundColor: c.bg,
       appBar: AppBar(
-        backgroundColor: AppColors.cardBg,
-        title: Text('Menu Management', style: AppTextStyles.subheading),
+        backgroundColor: c.cardBg,
+        title: Text('Menu Management',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: c.textPrimary,
+            )),
+        iconTheme: IconThemeData(color: c.textPrimary),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: Text(
-              '${_menuItems.length} items',
-              style: AppTextStyles.caption,
+            child: Center(
+              child: Text(
+                '${_menuItems.length} items',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12, color: c.textTertiary),
+              ),
             ),
           ),
         ],
@@ -291,7 +366,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
             )
           : RefreshIndicator(
               onRefresh: _loadMenuItems,
-              color: AppColors.teal,
+              color: SColors.primary,
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: _groupedItems.entries.map((entry) {
@@ -299,31 +374,38 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 10, top: 8),
+                        padding:
+                            const EdgeInsets.only(bottom: 10, top: 8),
                         child: Row(
                           children: [
                             Container(
                               width: 4,
                               height: 18,
                               decoration: BoxDecoration(
-                                color: AppColors.teal,
+                                color: SColors.primary,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Text(
                               entry.key,
-                              style: AppTextStyles.subheading.copyWith(fontSize: 16),
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: c.textPrimary,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             Text(
                               '(${entry.value.length})',
-                              style: AppTextStyles.caption,
+                              style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12, color: c.textTertiary),
                             ),
                           ],
                         ),
                       ),
-                      ...entry.value.map(_buildItemTile),
+                      ...entry.value
+                          .map((item) => _buildItemTile(item, c)),
                       const SizedBox(height: 8),
                     ],
                   );
@@ -332,7 +414,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showItemForm(),
-        backgroundColor: AppColors.teal,
+        backgroundColor: SColors.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
@@ -366,6 +448,26 @@ class _MenuItemFormSheetState extends State<_MenuItemFormSheet> {
   Uint8List? _pickedImageBytes;
   String? _pickedImageName;
   String? _existingImageUrl;
+  List<String> _existingCategories = [];
+  String? _merchantCategory;
+
+  static const List<String> _defaultCategories = [
+    'Chicken & Platters',
+    'Burgers',
+    'Rice Meals',
+    'Pasta & Noodles',
+    'Fries & Sides',
+    'Drinks & Beverages',
+    'Desserts',
+    'Snacks',
+    'Breakfast',
+    'Value Meals',
+    'Family Meals',
+    'Coffee',
+    'Milk Tea',
+    'Pizza',
+    'Sandwiches',
+  ];
 
   bool get isEditing => widget.existing != null;
 
@@ -380,6 +482,32 @@ class _MenuItemFormSheetState extends State<_MenuItemFormSheet> {
       _categoryController.text = widget.existing!['category'] ?? '';
       _existingImageUrl = widget.existing!['image_url'];
     }
+    _loadCategoryInfo();
+  }
+
+  Future<void> _loadCategoryInfo() async {
+    try {
+      final items = await SupabaseService.menuItems()
+          .select('category')
+          .eq('merchant_id', widget.merchantId);
+      final cats = <String>{};
+      for (final item in items) {
+        final c = item['category'] as String?;
+        if (c != null && c.isNotEmpty) cats.add(c);
+      }
+
+      final merchant = await SupabaseService.merchants()
+          .select('category')
+          .eq('id', widget.merchantId)
+          .single();
+
+      if (mounted) {
+        setState(() {
+          _existingCategories = cats.toList()..sort();
+          _merchantCategory = merchant['category'] as String?;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -393,7 +521,8 @@ class _MenuItemFormSheetState extends State<_MenuItemFormSheet> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800);
+    final file =
+        await picker.pickImage(source: ImageSource.gallery, maxWidth: 800);
     if (file == null) return;
     final bytes = await file.readAsBytes();
     setState(() {
@@ -410,7 +539,6 @@ class _MenuItemFormSheetState extends State<_MenuItemFormSheet> {
     try {
       String? imageUrl = _existingImageUrl;
 
-      // Upload image if picked
       if (_pickedImageBytes != null) {
         final ext = _pickedImageName?.split('.').last ?? 'jpg';
         final path =
@@ -459,13 +587,15 @@ class _MenuItemFormSheetState extends State<_MenuItemFormSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.sc;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
       padding: EdgeInsets.only(bottom: bottomInset),
-      decoration: const BoxDecoration(
-        color: AppColors.primaryBg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: c.bg,
+        borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -481,7 +611,7 @@ class _MenuItemFormSheetState extends State<_MenuItemFormSheet> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.darkGrey,
+                    color: c.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -489,7 +619,11 @@ class _MenuItemFormSheetState extends State<_MenuItemFormSheet> {
               const SizedBox(height: 16),
               Text(
                 isEditing ? 'Edit Menu Item' : 'Add Menu Item',
-                style: AppTextStyles.heading.copyWith(fontSize: 20),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: c.textPrimary,
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -500,9 +634,9 @@ class _MenuItemFormSheetState extends State<_MenuItemFormSheet> {
                   width: double.infinity,
                   height: 140,
                   decoration: BoxDecoration(
-                    color: AppColors.cardBg,
+                    color: c.inputBg,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.darkGrey),
+                    border: Border.all(color: c.border),
                   ),
                   child: _pickedImageBytes != null
                       ? ClipRRect(
@@ -524,13 +658,19 @@ class _MenuItemFormSheetState extends State<_MenuItemFormSheet> {
                               ),
                             )
                           : Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisAlignment:
+                                  MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.add_photo_alternate_outlined,
-                                    size: 40, color: Colors.white38),
+                                Icon(
+                                    Icons
+                                        .add_photo_alternate_outlined,
+                                    size: 40,
+                                    color: c.textTertiary),
                                 const SizedBox(height: 8),
                                 Text('Tap to add image',
-                                    style: AppTextStyles.caption),
+                                    style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12,
+                                        color: c.textTertiary)),
                               ],
                             ),
                 ),
@@ -541,8 +681,9 @@ class _MenuItemFormSheetState extends State<_MenuItemFormSheet> {
                 label: 'Item Name',
                 hint: 'e.g. Chicken Adobo',
                 controller: _nameController,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Name is required'
+                    : null,
               ),
               const SizedBox(height: 14),
 
@@ -558,10 +699,12 @@ class _MenuItemFormSheetState extends State<_MenuItemFormSheet> {
                 label: 'Price (\u20B1)',
                 hint: '0.00',
                 controller: _priceController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Price is required';
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Price is required';
+                  }
                   if (double.tryParse(v.trim()) == null) {
                     return 'Enter a valid price';
                   }
@@ -570,13 +713,126 @@ class _MenuItemFormSheetState extends State<_MenuItemFormSheet> {
               ),
               const SizedBox(height: 14),
 
-              SugoBayTextField(
-                label: 'Category',
-                hint: 'e.g. Rice Meals, Drinks, Snacks',
-                controller: _categoryController,
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Category is required'
-                    : null,
+              // Category dropdown with autocomplete
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Category',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: SColors.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      )),
+                  const SizedBox(height: 6),
+                  Autocomplete<String>(
+                    initialValue: TextEditingValue(
+                        text: _categoryController.text),
+                    optionsBuilder: (textEditingValue) {
+                      final query =
+                          textEditingValue.text.toLowerCase();
+                      final allCats = <String>{
+                        ..._existingCategories,
+                        ..._defaultCategories
+                      };
+                      if (query.isEmpty) return allCats;
+                      return allCats.where(
+                          (cat) => cat.toLowerCase().contains(query));
+                    },
+                    onSelected: (value) {
+                      _categoryController.text = value;
+                    },
+                    fieldViewBuilder: (context, controller, focusNode,
+                        onEditingComplete) {
+                      if (controller.text.isEmpty &&
+                          _categoryController.text.isNotEmpty) {
+                        controller.text = _categoryController.text;
+                      }
+                      return TextFormField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        onEditingComplete: onEditingComplete,
+                        onChanged: (v) =>
+                            _categoryController.text = v,
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14, color: c.textPrimary),
+                        decoration: InputDecoration(
+                          hintText:
+                              'e.g. Chicken & Platters, Drinks',
+                          hintStyle: GoogleFonts.plusJakartaSans(
+                              fontSize: 14, color: c.textTertiary),
+                          filled: true,
+                          fillColor: c.inputBg,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: c.border),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: c.border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                                color: SColors.primary),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 14),
+                          suffixIcon: Icon(Icons.arrow_drop_down,
+                              color: c.textTertiary),
+                        ),
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty)
+                                ? 'Category is required'
+                                : null,
+                      );
+                    },
+                    optionsViewBuilder:
+                        (context, onSelected, options) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          color: c.cardBg,
+                          elevation: 8,
+                          borderRadius: BorderRadius.circular(12),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                                maxHeight: 200, maxWidth: 300),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              padding:
+                                  const EdgeInsets.symmetric(
+                                      vertical: 4),
+                              itemCount: options.length,
+                              itemBuilder: (_, i) {
+                                final opt = options.elementAt(i);
+                                final isExisting =
+                                    _existingCategories
+                                        .contains(opt);
+                                return ListTile(
+                                  dense: true,
+                                  title: Text(opt,
+                                      style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 14,
+                                          color: c.textPrimary)),
+                                  trailing: isExisting
+                                      ? Text('existing',
+                                          style:
+                                              GoogleFonts.plusJakartaSans(
+                                            fontSize: 10,
+                                            color:
+                                                SColors.primary,
+                                          ))
+                                      : null,
+                                  onTap: () => onSelected(opt),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
 
