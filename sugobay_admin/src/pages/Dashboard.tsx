@@ -1,17 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import { ShoppingBag, Truck, Store, Bike, Users, MapPin, RefreshCw } from 'lucide-react'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-
-// Custom rider marker icon
-const riderIcon = new L.DivIcon({
-  html: '<div style="background:#2A9D8F;width:28px;height:28px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.4)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L19 21L12 17L5 21L12 2Z"/></svg></div>',
-  className: '',
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
-})
+import { Map, AdvancedMarker } from '@vis.gl/react-google-maps'
+import gsap from 'gsap'
 
 interface Stats {
   totalOrders: number
@@ -168,33 +159,56 @@ export default function Dashboard() {
     s === 'cancelled' ? 'bg-red-500/20 text-red-400' :
     'bg-yellow-500/20 text-yellow-400'
 
+  const statCardsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!loading) {
+      gsap.from('.dash-stat-card', { y: 24, opacity: 0, stagger: 0.06, duration: 0.5, ease: 'power2.out', clearProps: 'all' })
+      gsap.from('.dash-activity-item', { x: -16, opacity: 0, stagger: 0.04, duration: 0.4, ease: 'power2.out', delay: 0.3, clearProps: 'all' })
+    }
+  }, [loading])
+
   if (loading) {
-    return <div className="flex items-center justify-center h-64 text-gray-400">Loading dashboard...</div>
+    return (
+      <div className="flex items-center justify-center h-64 gap-3 text-gray-600">
+        <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#2A9D8F]/30 border-t-[#2A9D8F]" />
+        Loading dashboard...
+      </div>
+    )
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <button onClick={refreshAll} className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg text-sm hover:bg-[#2A9D8F]/80 flex items-center gap-2">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-1">Real-time overview of SugoBay operations</p>
+        </div>
+        <button
+          onClick={refreshAll}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium btn-press"
+          style={{ background: 'rgba(42,157,143,0.15)', border: '1px solid rgba(42,157,143,0.3)', color: '#2A9D8F' }}>
           <RefreshCw size={14} /> Refresh
         </button>
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
+      <div ref={statCardsRef} className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
         {statCards.map(({ label, value, icon: Icon, color, sub }: any) => (
-          <div key={label} className="bg-[#23252A] rounded-xl p-4 border border-[#2D2F34]">
-            <Icon size={20} color={color} className="mb-2" />
+          <div key={label} className="dash-stat-card premium-card p-4">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
+              style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
+              <Icon size={16} color={color} />
+            </div>
             <p className="text-2xl font-bold text-white">{value}</p>
-            <p className="text-xs text-gray-500 mt-1">{label}</p>
-            {sub && <p className="text-[10px] text-green-400 mt-0.5">{sub}</p>}
+            <p className="text-xs text-gray-500 mt-1 leading-tight">{label}</p>
+            {sub && <p className="text-[10px] text-green-400 mt-1 font-medium">{sub}</p>}
           </div>
         ))}
       </div>
 
       {/* Live Rider Map */}
-      <div className="bg-[#23252A] rounded-xl p-6 border border-[#2D2F34] mb-8">
+      <div className="premium-card p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             <MapPin size={18} className="text-green-400" /> Live Rider Map
@@ -202,24 +216,29 @@ export default function Dashboard() {
           </h2>
         </div>
         <div className="rounded-lg overflow-hidden" style={{ height: 350 }}>
-          <MapContainer
-            center={onlineRiders.length > 0 ? [onlineRiders[0].lat, onlineRiders[0].lng] : [10.0581, 124.0474]}
-            zoom={14}
-            style={{ height: '100%', width: '100%' }}
-            attributionControl={false}
+          <Map
+            defaultCenter={onlineRiders.length > 0 ? { lat: onlineRiders[0].lat, lng: onlineRiders[0].lng } : { lat: 10.0581, lng: 124.0474 }}
+            defaultZoom={14}
+            style={{ width: '100%', height: '100%' }}
+            mapId="sugobay-dashboard"
+            disableDefaultUI={true}
+            gestureHandling="greedy"
           >
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             {onlineRiders.map(r => (
-              <Marker key={r.rider_id} position={[r.lat, r.lng]} icon={riderIcon}>
-                <Popup>
-                  <div style={{ color: '#1A1C20', fontSize: 13 }}>
-                    <strong>{r.name}</strong><br />
-                    <span style={{ color: '#666' }}>Last seen: {new Date(r.updated_at).toLocaleTimeString()}</span>
-                  </div>
-                </Popup>
-              </Marker>
+              <AdvancedMarker key={r.rider_id} position={{ lat: r.lat, lng: r.lng }} title={r.name}>
+                <div style={{
+                  background: '#2A9D8F', width: 28, height: 28, borderRadius: '50%',
+                  border: '3px solid #fff', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                  cursor: 'pointer',
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                    <path d="M12 2L19 21L12 17L5 21L12 2Z" />
+                  </svg>
+                </div>
+              </AdvancedMarker>
             ))}
-          </MapContainer>
+          </Map>
         </div>
         {onlineRiders.length === 0 && (
           <p className="text-gray-500 text-sm text-center mt-3">No riders online — map centered on Ubay</p>
@@ -230,14 +249,14 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
 
         {/* Today's Activity Timeline */}
-        <div className="bg-[#23252A] rounded-xl p-6 border border-[#2D2F34]">
+        <div className="premium-card p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Today's Activity</h2>
           {activity.length === 0 ? (
             <p className="text-gray-500 text-sm">No activity today</p>
           ) : (
             <div className="space-y-3 max-h-64 overflow-y-auto">
               {activity.map(a => (
-                <div key={a.id} className="flex items-center justify-between py-2 border-b border-[#2D2F34] last:border-0">
+                <div key={a.id} className="dash-activity-item flex items-center justify-between py-2 border-b border-[#2D2F34] last:border-0">
                   <div className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${a.type === 'food' ? 'bg-[#E76F51]' : 'bg-[#2A9D8F]'}`} />
                     <div>
@@ -264,14 +283,14 @@ export default function Dashboard() {
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Food Orders */}
-        <div className="bg-[#23252A] rounded-xl p-6 border border-[#2D2F34]">
+        <div className="premium-card p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Recent Food Orders</h2>
           {recentOrders.length === 0 ? (
             <p className="text-gray-500 text-sm">No orders yet</p>
           ) : (
             <div className="space-y-3">
               {recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between py-2 border-b border-[#2D2F34] last:border-0">
+                <div key={order.id} className="dash-activity-item flex items-center justify-between py-2 border-b border-[#2D2F34] last:border-0">
                   <div>
                     <p className="text-sm text-white">#{order.id.slice(-6)}</p>
                     <p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleString()}</p>
@@ -289,14 +308,14 @@ export default function Dashboard() {
         </div>
 
         {/* Recent Pahapit */}
-        <div className="bg-[#23252A] rounded-xl p-6 border border-[#2D2F34]">
+        <div className="premium-card p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Recent Pahapit Jobs</h2>
           {recentPahapit.length === 0 ? (
             <p className="text-gray-500 text-sm">No pahapit jobs yet</p>
           ) : (
             <div className="space-y-3">
               {recentPahapit.map((job) => (
-                <div key={job.id} className="flex items-center justify-between py-2 border-b border-[#2D2F34] last:border-0">
+                <div key={job.id} className="dash-activity-item flex items-center justify-between py-2 border-b border-[#2D2F34] last:border-0">
                   <div>
                     <p className="text-sm text-white">{job.store_name}</p>
                     <p className="text-xs text-gray-500 truncate max-w-[200px]">{job.items_description}</p>

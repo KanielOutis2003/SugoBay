@@ -51,35 +51,33 @@ export default function Layout() {
 
   const sidebarContent = (
     <>
-      <div className="p-6 border-b border-[#2D2F34]">
+      <div className="p-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="flex items-center gap-3">
-          <img src="/icon.png" alt="SugoBay" className="w-10 h-10 rounded-full" />
+          <img src="/icon.png" alt="SugoBay" className="w-9 h-9 rounded-xl"
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
           <div>
-            <h1 className="text-lg font-bold bg-gradient-to-r from-[#2A9D8F] to-[#E76F51] bg-clip-text text-transparent">
-              SugoBay Admin
-            </h1>
-            <p className="text-xs text-gray-500">Sugo para sa tanan sa Ubay</p>
+            <h1 className="text-base font-bold gradient-text">SugoBay Admin</h1>
+            <p className="text-[10px] text-gray-600 mt-0.5">Sugo para sa tanan sa Ubay</p>
           </div>
         </div>
       </div>
-      <nav className="flex-1 overflow-y-auto py-4">
+      <nav className="flex-1 overflow-y-auto py-3 px-2">
         {navItems.map(({ path, label, icon: Icon, badgeKey }) => {
           const count = badgeKey ? (badges[badgeKey] || 0) : 0
           return (
             <NavLink
-              key={path}
-              to={path}
-              end={path === '/'}
+              key={path} to={path} end={path === '/'}
               onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-6 py-3 text-sm transition-colors ${
-                  isActive
-                    ? 'text-[#2A9D8F] bg-[#2A9D8F]/10 border-r-2 border-[#2A9D8F]'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all mb-0.5 ${
+                  isActive ? 'text-[#2A9D8F] font-semibold' : 'text-gray-500 hover:text-gray-300'
                 }`
               }
+              style={({ isActive }) => isActive
+                ? { background: 'rgba(42,157,143,0.12)', border: '1px solid rgba(42,157,143,0.2)' }
+                : { border: '1px solid transparent' }}
             >
-              <Icon size={18} />
+              <Icon size={16} />
               <span className="flex-1">{label}</span>
               {count > 0 && (
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center ${
@@ -94,51 +92,51 @@ export default function Layout() {
           )
         })}
       </nav>
-      <div className="p-4 border-t border-[#2D2F34]">
-        <button
-          onClick={signOut}
-          className="flex items-center gap-2 text-gray-400 hover:text-red-400 text-sm transition-colors w-full mb-3"
-        >
-          <LogOut size={16} />
-          Sign Out
+      <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <button onClick={signOut}
+          className="flex items-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm text-gray-500 hover:text-red-400 transition-colors mb-2"
+          style={{ border: '1px solid transparent' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(239,68,68,0.07)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+          <LogOut size={15} /> Sign Out
         </button>
-        <p className="text-xs text-gray-500">SugoBay v3.0.0</p>
+        <p className="text-[10px] text-gray-700 px-4">SugoBay v3.0.0</p>
       </div>
     </>
   )
 
   return (
-    <div className="flex h-screen bg-[#1A1C20]">
+    <div className="flex h-screen" style={{ background: '#0F1117' }}>
       {/* Mobile top bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#23252A] border-b border-[#2D2F34] flex items-center px-4 h-14">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center px-4 h-14"
+        style={{ background: 'rgba(22,24,29,0.95)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white p-1 relative">
           <Menu size={22} />
           {(badges.pendingMerchants > 0 || badges.openComplaints > 0) && (
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
           )}
         </button>
-        <h1 className="ml-3 text-sm font-bold bg-gradient-to-r from-[#2A9D8F] to-[#E76F51] bg-clip-text text-transparent">
-          SugoBay Admin
-        </h1>
+        <h1 className="ml-3 text-sm font-bold gradient-text">SugoBay Admin</h1>
       </div>
 
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="w-64 bg-[#23252A] flex flex-col shadow-2xl">
+          <div className="w-64 flex flex-col shadow-2xl" style={{ background: '#16181D', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
             <div className="flex justify-end p-3">
-              <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-white">
-                <X size={20} />
+              <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg"
+                style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <X size={18} />
               </button>
             </div>
             {sidebarContent}
           </div>
-          <div className="flex-1 bg-black/50" onClick={() => setSidebarOpen(false)} />
+          <div className="flex-1" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setSidebarOpen(false)} />
         </div>
       )}
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-64 bg-[#23252A] border-r border-[#2D2F34] flex-col flex-shrink-0">
+      <aside className="hidden lg:flex w-64 flex-col flex-shrink-0" style={{ background: '#16181D', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
         {sidebarContent}
       </aside>
 

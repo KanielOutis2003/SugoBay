@@ -1,10 +1,10 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/constants.dart';
@@ -29,7 +29,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   double? _lastLat;
   double? _lastLng;
 
-  final MapController _mapController = MapController();
+  GoogleMapController? _googleMapController;
   LatLng? _currentPosition;
 
   Map<String, dynamic>? _profile;
@@ -499,42 +499,47 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
 
   // Map Tab
   Widget _buildMapTab(SugoColors c, bool isDark) {
+    if (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.map_outlined, color: c.textTertiary, size: 48),
+            const SizedBox(height: 12),
+            Text('Map available on Android only',
+                style: GoogleFonts.plusJakartaSans(color: c.textTertiary)),
+          ],
+        ),
+      );
+    }
+
     final center =
         _currentPosition ?? const LatLng(10.0581, 124.0474);
 
     return Stack(
       children: [
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: center,
-            initialZoom: 15.0,
+        GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: center,
+            zoom: 15.0,
           ),
-          children: [
-            TileLayer(
-              urlTemplate: isDark
-                  ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                  : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              subdomains: isDark ? const ['a', 'b', 'c', 'd'] : const [],
-              userAgentPackageName: 'com.sugobay.app',
-              retinaMode: isDark,
-            ),
-            MarkerLayer(
-              markers: [
-                if (_currentPosition != null)
-                  Marker(
-                    point: _currentPosition!,
-                    width: 50,
-                    height: 50,
-                    child: const Icon(
-                      Icons.navigation,
-                      color: SColors.primary,
-                      size: 36,
-                    ),
-                  ),
-              ],
-            ),
-          ],
+          trafficEnabled: true,
+          myLocationEnabled: true,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          onMapCreated: (controller) => _googleMapController = controller,
+          markers: {
+            if (_currentPosition != null)
+              Marker(
+                markerId: const MarkerId('rider'),
+                position: _currentPosition!,
+                icon: BitmapDescriptor.defaultMarkerWithHue(
+                    BitmapDescriptor.hueAzure),
+                infoWindow: const InfoWindow(title: 'You'),
+              ),
+          },
         ),
         Positioned(
           bottom: 20,
@@ -544,7 +549,9 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
             backgroundColor: c.cardBg,
             onPressed: () {
               if (_currentPosition != null) {
-                _mapController.move(_currentPosition!, 15.0);
+                _googleMapController?.animateCamera(
+                  CameraUpdate.newLatLngZoom(_currentPosition!, 15.0),
+                );
               }
             },
             child: const Icon(Icons.my_location, color: SColors.primary),

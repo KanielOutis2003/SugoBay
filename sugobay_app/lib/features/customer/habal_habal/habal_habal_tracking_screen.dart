@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants.dart';
 import '../../../core/supabase_client.dart';
@@ -361,48 +361,53 @@ class _HabalHabalTrackingScreenState extends State<HabalHabalTrackingScreen> {
 
     return Stack(
       children: [
-        // Full-screen map
-        FlutterMap(
-          options: MapOptions(
-            initialCenter: initialCenter,
-            initialZoom: 14.0,
+        // Full-screen Google Map
+        if (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.macOS)
+          Container(
+            color: c.inputBg,
+            child: Center(
+              child: Icon(Icons.map_outlined,
+                  color: c.textTertiary, size: 48),
+            ),
+          )
+        else
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: initialCenter,
+              zoom: 14.0,
+            ),
+            trafficEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            markers: {
+              if (hasPickup)
+                Marker(
+                  markerId: const MarkerId('pickup'),
+                  position: LatLng(pickupLat, pickupLng),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueAzure),
+                  infoWindow: const InfoWindow(title: 'Pickup'),
+                ),
+              if (hasDropoff)
+                Marker(
+                  markerId: const MarkerId('dropoff'),
+                  position: LatLng(dropoffLat, dropoffLng),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueRose),
+                  infoWindow: const InfoWindow(title: 'Dropoff'),
+                ),
+              if (hasRider)
+                Marker(
+                  markerId: const MarkerId('rider'),
+                  position: LatLng(riderLat, riderLng),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueYellow),
+                  infoWindow: const InfoWindow(title: 'Rider'),
+                ),
+            },
           ),
-          children: [
-            TileLayer(
-              urlTemplate:
-                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.sugobay.app',
-            ),
-            MarkerLayer(
-              markers: [
-                if (hasPickup)
-                  Marker(
-                    point: LatLng(pickupLat, pickupLng),
-                    width: 40,
-                    height: 40,
-                    child: Icon(Icons.radio_button_checked,
-                        color: SColors.primary, size: 32),
-                  ),
-                if (hasDropoff)
-                  Marker(
-                    point: LatLng(dropoffLat, dropoffLng),
-                    width: 40,
-                    height: 40,
-                    child: Icon(Icons.location_on,
-                        color: SColors.coral, size: 32),
-                  ),
-                if (hasRider)
-                  Marker(
-                    point: LatLng(riderLat, riderLng),
-                    width: 40,
-                    height: 40,
-                    child: Icon(Icons.motorcycle,
-                        color: SColors.gold, size: 32),
-                  ),
-              ],
-            ),
-          ],
-        ),
 
         // Back button
         Positioned(

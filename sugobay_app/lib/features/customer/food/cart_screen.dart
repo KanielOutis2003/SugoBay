@@ -10,7 +10,7 @@ import '../../../core/theme.dart';
 import '../../../shared/widgets.dart';
 import '../../../shared/delivery_fee.dart';
 import '../../../shared/osm_service.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'merchant_detail_screen.dart';
 
 class CartScreen extends ConsumerStatefulWidget {

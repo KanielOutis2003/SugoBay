@@ -1,28 +1,19 @@
 import { useEffect, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import { exportToCsv } from '../lib/csvExport'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import { Map as GoogleMap, AdvancedMarker, useMap } from '@vis.gl/react-google-maps'
+import { Bike, AlertTriangle, ShieldOff, ShieldCheck, RefreshCw, Download, X, Calendar, Star } from 'lucide-react'
+import gsap from 'gsap'
 
-// Teal rider dot icon
-const riderIcon = new L.DivIcon({
-  html: '<div style="background:#2A9D8F;width:28px;height:28px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.4)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L19 21L12 17L5 21L12 2Z"/></svg></div>',
-  className: '',
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
-})
-
-// Region definitions
-const REGIONS: Record<string, { center: [number, number]; zoom: number; label: string }> = {
-  ubay:  { center: [10.0581, 124.0474], zoom: 14, label: 'Ubay, Bohol' },
-  bohol: { center: [9.8500,  124.1435], zoom: 11, label: 'Bohol' },
-  cebu:  { center: [10.3157, 123.8854], zoom: 11, label: 'Cebu' },
+const REGIONS: Record<string, { center: { lat: number; lng: number }; zoom: number; label: string }> = {
+  ubay:  { center: { lat: 10.0581, lng: 124.0474 }, zoom: 14, label: 'Ubay, Bohol' },
+  bohol: { center: { lat: 9.8500,  lng: 124.1435 }, zoom: 11, label: 'Bohol' },
+  cebu:  { center: { lat: 10.3157, lng: 123.8854 }, zoom: 11, label: 'Cebu' },
 }
 
-function FlyTo({ center, zoom }: { center: [number, number]; zoom: number }) {
+function FlyTo({ center, zoom }: { center: { lat: number; lng: number }; zoom: number }) {
   const map = useMap()
-  useEffect(() => { map.flyTo(center, zoom, { duration: 1.2 }) }, [center, zoom])
+  useEffect(() => { if (map) map.panTo(center) }, [map, center, zoom])
   return null
 }
 
@@ -49,11 +40,18 @@ const SHIFTS = ['morning', 'lunch', 'afternoon', 'evening']
 const SHIFT_LABELS: Record<string, string> = { morning: 'Morning', lunch: 'Lunch', afternoon: 'Afternoon', evening: 'Evening' }
 
 function getStrikeInfo(count: number) {
-  if (count === 0) return { label: 'Clean', color: 'text-green-400', bgColor: 'bg-green-500/20' }
-  if (count === 1) return { label: 'Warning', color: 'text-yellow-400', bgColor: 'bg-yellow-500/20' }
-  if (count === 2) return { label: 'Meeting Required', color: 'text-orange-400', bgColor: 'bg-orange-500/20' }
-  if (count === 3) return { label: 'Suspended', color: 'text-red-400', bgColor: 'bg-red-500/20' }
-  return { label: 'Removed', color: 'text-red-500', bgColor: 'bg-red-600/20' }
+  if (count === 0) return { label: 'Clean',            color: '#4ade80', bg: 'rgba(74,222,128,0.12)'  }
+  if (count === 1) return { label: 'Warning',          color: '#facc15', bg: 'rgba(250,204,21,0.12)'  }
+  if (count === 2) return { label: 'Meeting Required', color: '#fb923c', bg: 'rgba(251,146,60,0.12)'  }
+  if (count === 3) return { label: 'Suspended',        color: '#f87171', bg: 'rgba(248,113,113,0.12)' }
+  return             { label: 'Removed',               color: '#ef4444', bg: 'rgba(239,68,68,0.15)'  }
+}
+
+function getLevelInfo(totalJobs: number) {
+  if (totalJobs >= 500) return { label: 'Elite',   color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' }
+  if (totalJobs >= 200) return { label: 'Trusted', color: '#60a5fa', bg: 'rgba(96,165,250,0.12)'  }
+  if (totalJobs >= 50)  return { label: 'Regular', color: '#4ade80', bg: 'rgba(74,222,128,0.12)'  }
+  return                        { label: 'Rookie',  color: '#9CA3AF', bg: 'rgba(156,163,175,0.1)'  }
 }
 
 export default function Riders() {
@@ -68,6 +66,12 @@ export default function Riders() {
   const [issuingWarning, setIssuingWarning] = useState(false)
 
   useEffect(() => { loadRiders() }, [])
+
+  useEffect(() => {
+    if (!loading && riders.length > 0) {
+      gsap.from('.rider-row', { x: -16, opacity: 0, stagger: 0.03, duration: 0.4, ease: 'power2.out', clearProps: 'all' })
+    }
+  }, [loading, riders])
 
   async function loadRiders() {
     setLoading(true)
@@ -89,9 +93,8 @@ export default function Riders() {
     const complaintsOrders = complaintsOrdersRes.data || []
     const complaintsPahapit = complaintsPahapitRes.data || []
 
-    // Build lookup maps
-    const locMap = new Map(locations.map(l => [l.rider_id, l]))
-    const ratingMap = new Map<string, number[]>()
+    const locMap: globalThis.Map<string, any> = new globalThis.Map(locations.map((l: any) => [l.rider_id, l]))
+    const ratingMap: globalThis.Map<string, number[]> = new globalThis.Map()
     for (const r of ratings) {
       const riderId = (r as any).orders?.rider_id || (r as any).pahapit_requests?.rider_id
       if (!riderId) continue
@@ -99,32 +102,21 @@ export default function Riders() {
       ratingMap.get(riderId)!.push(r.rider_rating || 0)
     }
 
-    // Count delivered orders and completed pahapits per rider
-    const orderCountMap = new Map<string, number>()
+    const orderCountMap: globalThis.Map<string, number> = new globalThis.Map()
     for (const o of allOrders) {
-      if (o.status === 'delivered') {
-        orderCountMap.set(o.rider_id, (orderCountMap.get(o.rider_id) || 0) + 1)
-      }
+      if (o.status === 'delivered') orderCountMap.set(o.rider_id, (orderCountMap.get(o.rider_id) || 0) + 1)
     }
-    const pahapitCountMap = new Map<string, number>()
+    const pahapitCountMap: globalThis.Map<string, number> = new globalThis.Map()
     for (const p of allPahapits) {
-      if (p.status === 'completed') {
-        pahapitCountMap.set(p.rider_id, (pahapitCountMap.get(p.rider_id) || 0) + 1)
-      }
+      if (p.status === 'completed') pahapitCountMap.set(p.rider_id, (pahapitCountMap.get(p.rider_id) || 0) + 1)
     }
 
-    // Map order_id -> rider_id and pahapit_id -> rider_id for complaint lookups
-    const orderRiderMap = new Map<string, string>()
-    for (const o of allOrders) {
-      if (o.rider_id) orderRiderMap.set(o.id, o.rider_id)
-    }
-    const pahapitRiderMap = new Map<string, string>()
-    for (const p of allPahapits) {
-      if (p.rider_id) pahapitRiderMap.set(p.id, p.rider_id)
-    }
+    const orderRiderMap: globalThis.Map<string, string> = new globalThis.Map()
+    for (const o of allOrders) { if (o.rider_id) orderRiderMap.set(o.id, o.rider_id) }
+    const pahapitRiderMap: globalThis.Map<string, string> = new globalThis.Map()
+    for (const p of allPahapits) { if (p.rider_id) pahapitRiderMap.set(p.id, p.rider_id) }
 
-    // Count complaints per rider
-    const complaintCountMap = new Map<string, number>()
+    const complaintCountMap: globalThis.Map<string, number> = new globalThis.Map()
     for (const c of complaintsOrders) {
       const riderId = orderRiderMap.get(c.order_id)
       if (riderId) complaintCountMap.set(riderId, (complaintCountMap.get(riderId) || 0) + 1)
@@ -134,22 +126,16 @@ export default function Riders() {
       if (riderId) complaintCountMap.set(riderId, (complaintCountMap.get(riderId) || 0) + 1)
     }
 
-    const riderList: Rider[] = users.map(u => {
-      const riderRatings = ratingMap.get(u.id) || []
-      const avgRating = riderRatings.length > 0 ? riderRatings.reduce((a, b) => a + b, 0) / riderRatings.length : 0
+    setRiders(users.map((u: any) => {
+      const riderRatings: number[] = ratingMap.get(u.id) || []
       return {
-        id: u.id,
-        name: u.name,
-        phone: u.phone,
-        is_active: u.is_active,
-        created_at: u.created_at,
+        id: u.id, name: u.name, phone: u.phone, is_active: u.is_active, created_at: u.created_at,
         location: locMap.get(u.id) || undefined,
         totalJobs: (orderCountMap.get(u.id) || 0) + (pahapitCountMap.get(u.id) || 0),
-        rating: avgRating,
+        rating: riderRatings.length > 0 ? riderRatings.reduce((a: number, b: number) => a + b, 0) / riderRatings.length : 0,
         complaintCount: complaintCountMap.get(u.id) || 0,
       }
-    })
-    setRiders(riderList)
+    }))
     setLoading(false)
   }
 
@@ -161,12 +147,12 @@ export default function Riders() {
   async function openShiftModal(rider: Rider) {
     setShiftModalRider(rider)
     setShiftLoading(true)
-    const { data } = await supabaseAdmin
-      .from('rider_shifts')
-      .select('day_of_week, shift, is_committed')
-      .eq('rider_id', rider.id)
+    const { data } = await supabaseAdmin.from('rider_shifts').select('day_of_week, shift, is_committed').eq('rider_id', rider.id)
     setShiftData(data || [])
     setShiftLoading(false)
+    requestAnimationFrame(() => {
+      gsap.from('.shift-modal', { y: 32, scale: 0.96, opacity: 0, duration: 0.35, ease: 'back.out(1.4)' })
+    })
   }
 
   function isCommitted(day: string, shift: string): boolean {
@@ -178,28 +164,13 @@ export default function Riders() {
     const newCount = rider.complaintCount + 1
     const strikeInfo = getStrikeInfo(newCount)
 
-    // If strike level >= 3, suspend the rider
     if (newCount >= 3) {
       await supabaseAdmin.from('users').update({ is_active: false }).eq('id', rider.id)
     }
 
-    // Find an order belonging to this rider so the complaint links back to them
-    const { data: anyOrder } = await supabaseAdmin
-      .from('orders')
-      .select('id')
-      .eq('rider_id', rider.id)
-      .limit(1)
-      .single()
+    const { data: anyOrder } = await supabaseAdmin.from('orders').select('id').eq('rider_id', rider.id).limit(1).single()
+    const { data: anyPahapit } = await supabaseAdmin.from('pahapit_requests').select('id').eq('rider_id', rider.id).limit(1).single()
 
-    // Find a pahapit belonging to this rider as fallback
-    const { data: anyPahapit } = await supabaseAdmin
-      .from('pahapit_requests')
-      .select('id')
-      .eq('rider_id', rider.id)
-      .limit(1)
-      .single()
-
-    // Insert a complaint record as the warning, linked to an order or pahapit so it maps back to the rider
     await supabaseAdmin.from('complaints').insert({
       customer_id: rider.id,
       order_id: anyOrder?.id || null,
@@ -215,253 +186,364 @@ export default function Riders() {
     loadRiders()
   }
 
-  function getStatusLevel(totalJobs: number) {
-    if (totalJobs >= 500) return { label: 'Elite', color: 'text-purple-400' }
-    if (totalJobs >= 200) return { label: 'Trusted', color: 'text-blue-400' }
-    if (totalJobs >= 50) return { label: 'Regular', color: 'text-green-400' }
-    return { label: 'Rookie', color: 'text-gray-400' }
-  }
+  const onlineCount = riders.filter(r => r.location?.is_online).length
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Riders</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Riders</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {riders.length} registered &bull;{' '}
+            <span className="text-green-400">{onlineCount} online now</span>
+          </p>
+        </div>
         <div className="flex gap-2">
-          <button onClick={() => exportToCsv('riders', riders.map(r => ({ ...r, location: r.location ? `${r.location.lat},${r.location.lng}` : '' })))} className="px-4 py-2 bg-[#23252A] text-gray-300 rounded-lg text-sm border border-[#2D2F34] hover:bg-[#2D2F34]">Export CSV</button>
-          <button onClick={loadRiders} className="px-4 py-2 bg-[#2A9D8F] text-white rounded-lg text-sm">Refresh</button>
+          <button
+            onClick={() => exportToCsv('riders', riders.map(r => ({ ...r, location: r.location ? `${r.location.lat},${r.location.lng}` : '' })))}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium btn-press"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#9CA3AF' }}>
+            <Download size={14} /> Export CSV
+          </button>
+          <button onClick={loadRiders}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium btn-press"
+            style={{ background: 'rgba(42,157,143,0.15)', border: '1px solid rgba(42,157,143,0.3)', color: '#2A9D8F' }}>
+            <RefreshCw size={14} /> Refresh
+          </button>
         </div>
       </div>
 
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: 'Total Riders', value: riders.length, color: '#2A9D8F', icon: Bike },
+          { label: 'Online Now', value: onlineCount, color: '#4ade80', icon: ShieldCheck },
+          { label: 'Active Riders', value: riders.filter(r => r.is_active).length, color: '#E9C46A', icon: Star },
+          { label: 'Suspended', value: riders.filter(r => !r.is_active).length, color: '#f87171', icon: ShieldOff },
+        ].map(({ label, value, color, icon: Icon }) => (
+          <div key={label} className="premium-card p-4">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
+              style={{ background: `${color}15`, border: `1px solid ${color}25` }}>
+              <Icon size={16} color={color} />
+            </div>
+            <p className="text-2xl font-bold text-white">{value}</p>
+            <p className="text-xs text-gray-500 mt-1">{label}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Live Rider Map */}
-      <div className="bg-[#23252A] rounded-xl border border-[#2D2F34] mb-6 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#2D2F34]">
-          <div className="flex items-center gap-2">
-            <span className="text-white font-semibold text-sm">Live Rider Map</span>
-            <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
-              {riders.filter(r => r.location?.is_online).length} online
+      <div className="premium-card overflow-hidden mb-6">
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-white">Live Rider Map</span>
+            <span className="text-xs px-2.5 py-1 rounded-full font-semibold"
+              style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.25)' }}>
+              {onlineCount} online
             </span>
           </div>
-          {/* Region filter */}
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             {(Object.keys(REGIONS) as Array<keyof typeof REGIONS>).map(key => (
-              <button
-                key={key}
-                onClick={() => setMapRegion(key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  mapRegion === key
-                    ? 'bg-[#2A9D8F] text-white'
-                    : 'bg-[#1A1C20] text-gray-400 hover:text-white border border-[#2D2F34]'
-                }`}
-              >
+              <button key={key} onClick={() => setMapRegion(key)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all btn-press"
+                style={mapRegion === key
+                  ? { background: 'rgba(42,157,143,0.2)', border: '1px solid rgba(42,157,143,0.4)', color: '#2A9D8F' }
+                  : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: '#6B7280' }}>
                 {REGIONS[key].label}
               </button>
             ))}
           </div>
         </div>
-        <div style={{ height: 320 }}>
-          <MapContainer
-            center={REGIONS[mapRegion].center}
-            zoom={REGIONS[mapRegion].zoom}
-            style={{ height: '100%', width: '100%' }}
-            zoomControl={true}
-          >
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-            />
+        <div style={{ height: 300 }}>
+          <GoogleMap
+            defaultCenter={REGIONS[mapRegion].center}
+            defaultZoom={REGIONS[mapRegion].zoom}
+            style={{ width: '100%', height: '100%' }}
+            mapId="sugobay-riders"
+            disableDefaultUI={true}
+            gestureHandling="greedy">
             <FlyTo center={REGIONS[mapRegion].center} zoom={REGIONS[mapRegion].zoom} />
-            {riders
-              .filter(r => r.location?.is_online && r.location.lat && r.location.lng)
-              .map(r => (
-                <Marker key={r.id} position={[r.location!.lat, r.location!.lng]} icon={riderIcon}>
-                  <Popup>
-                    <div style={{ fontFamily: 'sans-serif', minWidth: 120 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 4 }}>{r.name}</div>
-                      <div style={{ color: '#2A9D8F', fontSize: 12 }}>● Online</div>
-                      <div style={{ color: '#888', fontSize: 11, marginTop: 2 }}>{r.phone}</div>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-          </MapContainer>
+
+            {riders.filter(r => r.location?.is_online && r.location.lat && r.location.lng).map(r => (
+              <AdvancedMarker key={r.id} position={{ lat: r.location!.lat, lng: r.location!.lng }} title={`${r.name} • ${r.phone}`}>
+                <div style={{
+                  background: '#2A9D8F', width: 28, height: 28, borderRadius: '50%',
+                  border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(42,157,143,0.5)',
+                }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                    <path d="M12 2L19 21L12 17L5 21L12 2Z" />
+                  </svg>
+                </div>
+              </AdvancedMarker>
+            ))}
+          </GoogleMap>
         </div>
-        {riders.filter(r => r.location?.is_online).length === 0 && !loading && (
-          <p className="text-gray-500 text-xs text-center py-2">No riders currently online</p>
+        {!onlineCount && !loading && (
+          <p className="text-xs text-gray-600 text-center py-2">No riders currently online</p>
         )}
       </div>
 
-      {loading ? <p className="text-gray-500">Loading...</p> : (
-        <div className="bg-[#23252A] rounded-xl border border-[#2D2F34] overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#2D2F34] text-gray-400">
-                <th className="text-left p-4">Name</th>
-                <th className="text-left p-4">Phone</th>
-                <th className="text-left p-4">Online</th>
-                <th className="text-left p-4">Jobs</th>
-                <th className="text-left p-4">Rating</th>
-                <th className="text-left p-4">Warnings</th>
-                <th className="text-left p-4">Strike Level</th>
-                <th className="text-left p-4">Status</th>
-                <th className="text-left p-4">Level</th>
-                <th className="text-left p-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {riders.map(r => {
-                const level = getStatusLevel(r.totalJobs)
-                const strike = getStrikeInfo(r.complaintCount)
-                return (
-                  <tr key={r.id} className="border-b border-[#2D2F34] hover:bg-white/5">
-                    <td className="p-4 text-white">{r.name}</td>
-                    <td className="p-4 text-gray-300">{r.phone}</td>
-                    <td className="p-4">
-                      <span className={`w-2.5 h-2.5 rounded-full inline-block ${r.location?.is_online ? 'bg-green-400' : 'bg-gray-600'}`} />
-                    </td>
-                    <td className="p-4 text-[#E9C46A]">{r.totalJobs}</td>
-                    <td className="p-4 text-[#D4AF37]">{r.rating > 0 ? r.rating.toFixed(1) : '0'}</td>
-                    <td className="p-4 text-gray-300">{r.complaintCount}</td>
-                    <td className="p-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${strike.bgColor} ${strike.color}`}>
-                        {strike.label}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${r.is_active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                        {r.is_active ? 'Active' : 'Suspended'}
-                      </span>
-                    </td>
-                    <td className={`p-4 text-xs font-semibold ${level.color}`}>{level.label}</td>
-                    <td className="p-4">
-                      <div className="flex gap-2 items-center">
-                        <button onClick={() => openShiftModal(r)} className="text-xs text-blue-400 hover:text-blue-300">
-                          View Shifts
-                        </button>
-                        <button onClick={() => { setWarningModal(r); setWarningNote('') }} className="text-xs text-yellow-400 hover:text-yellow-300">
-                          Issue Warning
-                        </button>
-                        <button onClick={() => toggleActive(r.id, r.is_active)} className={`text-xs ${r.is_active ? 'text-red-400' : 'text-green-400'}`}>
-                          {r.is_active ? 'Suspend' : 'Reactivate'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+      {/* Riders Table */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16 gap-3 text-gray-600">
+          <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#2A9D8F]/30 border-t-[#2A9D8F]" />
+          Loading riders...
+        </div>
+      ) : (
+        <div className="premium-card overflow-hidden">
+          <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <h2 className="text-sm font-semibold text-white">All Riders</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  {['Rider', 'Phone', 'Status', 'Jobs', 'Rating', 'Strike Level', 'Rider Level', 'Actions'].map(h => (
+                    <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-600">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {riders.map(r => {
+                  const level = getLevelInfo(r.totalJobs)
+                  const strike = getStrikeInfo(r.complaintCount)
+                  return (
+                    <tr key={r.id} className="rider-row group"
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                      onMouseEnter={e => gsap.to(e.currentTarget, { backgroundColor: 'rgba(255,255,255,0.025)', duration: 0.15 })}
+                      onMouseLeave={e => gsap.to(e.currentTarget, { backgroundColor: 'transparent', duration: 0.15 })}>
+
+                      {/* Rider name + online indicator */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold"
+                              style={{ background: 'rgba(42,157,143,0.15)', color: '#2A9D8F' }}>
+                              {r.name?.[0]?.toUpperCase() || 'R'}
+                            </div>
+                            {r.location?.is_online && (
+                              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2"
+                                style={{ borderColor: '#16181D' }} />
+                            )}
+                          </div>
+                          <span className="text-white font-medium">{r.name}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-5 py-4 text-gray-400">{r.phone}</td>
+
+                      {/* Online/offline */}
+                      <td className="px-5 py-4">
+                        <span className="text-xs px-2.5 py-1 rounded-lg font-semibold"
+                          style={r.is_active
+                            ? { background: 'rgba(74,222,128,0.1)', color: '#4ade80' }
+                            : { background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
+                          {r.is_active ? 'Active' : 'Suspended'}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <span className="font-semibold" style={{ color: '#E9C46A' }}>{r.totalJobs}</span>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1">
+                          <Star size={12} color="#E9C46A" fill="#E9C46A" />
+                          <span className="text-gray-300">{r.rating > 0 ? r.rating.toFixed(1) : '0.0'}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <span className="text-xs px-2.5 py-1 rounded-lg font-semibold"
+                          style={{ background: strike.bg, color: strike.color }}>
+                          {strike.label}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <span className="text-xs px-2.5 py-1 rounded-lg font-semibold"
+                          style={{ background: level.bg, color: level.color }}>
+                          {level.label}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => openShiftModal(r)}
+                            className="text-xs px-3 py-1.5 rounded-lg font-medium btn-press transition-all"
+                            style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa' }}>
+                            <Calendar size={11} className="inline mr-1" />Shifts
+                          </button>
+                          <button onClick={() => { setWarningModal(r); setWarningNote('') }}
+                            className="text-xs px-3 py-1.5 rounded-lg font-medium btn-press"
+                            style={{ background: 'rgba(250,204,21,0.1)', color: '#facc15' }}>
+                            <AlertTriangle size={11} className="inline mr-1" />Warn
+                          </button>
+                          <button onClick={() => toggleActive(r.id, r.is_active)}
+                            className="text-xs px-3 py-1.5 rounded-lg font-medium btn-press"
+                            style={r.is_active
+                              ? { background: 'rgba(248,113,113,0.1)', color: '#f87171' }
+                              : { background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>
+                            {r.is_active ? 'Suspend' : 'Restore'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {/* Shift Modal */}
       {shiftModalRider && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShiftModalRider(null)}>
-          <div className="bg-[#1A1C20] rounded-xl border border-[#2D2F34] p-6 w-full max-w-2xl mx-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Shift Schedule - {shiftModalRider.name}</h2>
-              <button onClick={() => setShiftModalRider(null)} className="text-gray-400 hover:text-white text-xl">&times;</button>
-            </div>
-            {shiftLoading ? (
-              <p className="text-gray-500">Loading shifts...</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[#2D2F34] text-gray-400">
-                      <th className="text-left p-3">Day</th>
-                      {SHIFTS.map(s => (
-                        <th key={s} className="text-center p-3">{SHIFT_LABELS[s]}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {DAYS.map(day => (
-                      <tr key={day} className="border-b border-[#2D2F34]">
-                        <td className="p-3 text-white capitalize">{day}</td>
-                        {SHIFTS.map(shift => {
-                          const committed = isCommitted(day, shift)
-                          return (
-                            <td key={shift} className="p-3 text-center">
-                              <span className={`inline-block w-6 h-6 rounded-md ${committed ? 'bg-[#2A9D8F]' : 'bg-[#2D2F34]'}`}>
-                                {committed && (
-                                  <svg className="w-6 h-6 text-white p-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                )}
-                              </span>
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {shiftData.length === 0 && (
-                  <p className="text-gray-500 text-center py-4">No shift commitments found for this rider.</p>
-                )}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setShiftModalRider(null)}>
+          <div className="shift-modal w-full max-w-2xl rounded-2xl"
+            style={{ background: '#16181D', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 40px 120px rgba(0,0,0,0.6)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div>
+                <h2 className="text-base font-bold text-white">Shift Schedule</h2>
+                <p className="text-sm text-gray-500 mt-0.5">{shiftModalRider.name}</p>
               </div>
-            )}
+              <button onClick={() => setShiftModalRider(null)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center btn-press"
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#9CA3AF' }}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6">
+              {shiftLoading ? (
+                <div className="flex items-center justify-center py-8 gap-3 text-gray-600">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-[#2A9D8F]/30 border-t-[#2A9D8F]" />
+                  Loading shifts...
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider text-gray-600">Day</th>
+                        {SHIFTS.map(s => (
+                          <th key={s} className="text-center py-3 px-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                            {SHIFT_LABELS[s]}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {DAYS.map(day => (
+                        <tr key={day} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                          <td className="py-3 pr-4 text-white capitalize text-sm font-medium">{day}</td>
+                          {SHIFTS.map(shift => {
+                            const committed = isCommitted(day, shift)
+                            return (
+                              <td key={shift} className="py-3 px-2 text-center">
+                                <div className="w-7 h-7 rounded-lg mx-auto flex items-center justify-center"
+                                  style={{ background: committed ? 'rgba(42,157,143,0.2)' : 'rgba(255,255,255,0.04)', border: `1px solid ${committed ? 'rgba(42,157,143,0.4)' : 'rgba(255,255,255,0.07)'}` }}>
+                                  {committed && (
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="#2A9D8F" strokeWidth="2.5">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </div>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {shiftData.length === 0 && (
+                    <p className="text-gray-600 text-center py-6 text-sm">No shift commitments found.</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Warning Modal */}
       {warningModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setWarningModal(null)}>
-          <div className="bg-[#1A1C20] rounded-xl border border-[#2D2F34] p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Issue Warning - {warningModal.name}</h2>
-              <button onClick={() => setWarningModal(null)} className="text-gray-400 hover:text-white text-xl">&times;</button>
-            </div>
-
-            <div className="mb-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Current complaints:</span>
-                <span className="text-white">{warningModal.complaintCount}</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setWarningModal(null)}>
+          <div className="w-full max-w-md rounded-2xl"
+            style={{ background: '#16181D', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 40px 120px rgba(0,0,0,0.6)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{ background: 'rgba(250,204,21,0.12)', border: '1px solid rgba(250,204,21,0.25)' }}>
+                  <AlertTriangle size={16} color="#facc15" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white">Issue Warning</h2>
+                  <p className="text-xs text-gray-500">{warningModal.name}</p>
+                </div>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Current strike level:</span>
-                <span className={getStrikeInfo(warningModal.complaintCount).color}>
-                  {getStrikeInfo(warningModal.complaintCount).label}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">After this warning:</span>
-                <span className={getStrikeInfo(warningModal.complaintCount + 1).color}>
-                  {getStrikeInfo(warningModal.complaintCount + 1).label}
-                </span>
-              </div>
-            </div>
-
-            <div className="mb-2 text-xs text-gray-500">
-              <p>Strike policy: 1st = Warning | 2nd = Mandatory meeting | 3rd = 1 week suspension | 4th = Permanent removal</p>
-            </div>
-
-            {warningModal.complaintCount + 1 >= 3 && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                This warning will automatically suspend the rider's account.
-              </div>
-            )}
-
-            <textarea
-              value={warningNote}
-              onChange={e => setWarningNote(e.target.value)}
-              placeholder="Describe the reason for this warning..."
-              className="w-full p-3 bg-[#23252A] border border-[#2D2F34] rounded-lg text-white placeholder-gray-500 text-sm mb-4 resize-none"
-              rows={3}
-            />
-
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setWarningModal(null)} className="px-4 py-2 text-sm text-gray-400 hover:text-white">
-                Cancel
+              <button onClick={() => setWarningModal(null)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center btn-press"
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#9CA3AF' }}>
+                <X size={16} />
               </button>
-              <button
-                onClick={() => issueWarning(warningModal)}
-                disabled={issuingWarning || !warningNote.trim()}
-                className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {issuingWarning ? 'Issuing...' : 'Confirm Warning'}
-              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Strike info */}
+              <div className="space-y-2 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                {[
+                  { label: 'Current complaints', value: warningModal.complaintCount, color: 'white' },
+                  { label: 'Current strike', value: getStrikeInfo(warningModal.complaintCount).label, color: getStrikeInfo(warningModal.complaintCount).color },
+                  { label: 'After this warning', value: getStrikeInfo(warningModal.complaintCount + 1).label, color: getStrikeInfo(warningModal.complaintCount + 1).color },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="flex justify-between text-sm">
+                    <span className="text-gray-500">{label}</span>
+                    <span style={{ color }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-[10px] text-gray-600 leading-relaxed">
+                Strike policy: 1st = Warning | 2nd = Mandatory meeting | 3rd = 1-week suspension | 4th = Permanent removal
+              </p>
+
+              {warningModal.complaintCount + 1 >= 3 && (
+                <div className="px-4 py-3 rounded-xl text-sm"
+                  style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', color: '#f87171' }}>
+                  This warning will automatically suspend the rider.
+                </div>
+              )}
+
+              <textarea
+                value={warningNote} onChange={e => setWarningNote(e.target.value)}
+                placeholder="Describe the reason for this warning..."
+                rows={3} className="w-full text-sm text-white placeholder-gray-600 focus:outline-none resize-none"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '12px 16px', borderRadius: 12 }} />
+
+              <div className="flex gap-3">
+                <button onClick={() => setWarningModal(null)}
+                  className="flex-1 py-3 rounded-xl text-sm text-gray-500 hover:text-white btn-press"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={() => issueWarning(warningModal)}
+                  disabled={issuingWarning || !warningNote.trim()}
+                  className="flex-1 py-3 rounded-xl text-sm font-bold text-black btn-press disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #facc15, #eab308)' }}>
+                  {issuingWarning ? 'Issuing...' : 'Confirm Warning'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

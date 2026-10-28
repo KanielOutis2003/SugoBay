@@ -1,0 +1,28 @@
+sugobay warning for future release
+
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+3 warnings
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: firebase_messaging uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+give me .env so i just can paste my env variables
+change the logo in log in number section
+add icon in app
+
+all fill ups in registration and log in must be the first letter is capital
+address should fetch if they type a word for faster fill up
+
+Credentials were removed from this file. Rotate any credentials that were exposed, then keep replacements in an untracked .env file or secret manager.
+
+SUGOBAY
+
+merchant
+
+categories when adding a food in menu should be auto drop down

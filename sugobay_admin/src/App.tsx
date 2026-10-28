@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { APIProvider } from '@vis.gl/react-google-maps'
 import { AuthProvider } from './lib/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
@@ -18,6 +19,7 @@ import EmailConfirmed from './pages/EmailConfirmed'
 
 export default function App() {
   return (
+    <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
     <AuthProvider>
       <BrowserRouter>
         <Routes>
@@ -46,5 +48,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </APIProvider>
   )
 }

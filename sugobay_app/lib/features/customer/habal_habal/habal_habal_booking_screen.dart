@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/constants.dart';
 import '../../../core/supabase_client.dart';
 import '../../../core/theme.dart';
@@ -28,11 +29,13 @@ class _HabalHabalBookingScreenState extends State<HabalHabalBookingScreen> {
 
   double? get _distanceKm {
     if (_pickupPosition == null || _dropoffPosition == null) return null;
-    return const Distance().as(
-      LengthUnit.Kilometer,
-      _pickupPosition!,
-      _dropoffPosition!,
+    final distanceMeters = Geolocator.distanceBetween(
+      _pickupPosition!.latitude,
+      _pickupPosition!.longitude,
+      _dropoffPosition!.latitude,
+      _dropoffPosition!.longitude,
     );
+    return distanceMeters / 1000.0;
   }
 
   double? get _fare {

@@ -1,8 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -210,41 +210,41 @@ class _HabalRideDetailScreenState extends State<HabalRideDetailScreen> {
         // Map
         SizedBox(
           height: 250,
-          child: FlutterMap(
-            options: MapOptions(
-              initialCenter: LatLng(pickupLat, pickupLng),
-              initialZoom: 14.0,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: isDark
-                    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                subdomains:
-                    isDark ? const ['a', 'b', 'c', 'd'] : const [],
-                userAgentPackageName: 'com.sugobay.app',
-                retinaMode: isDark,
-              ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: LatLng(pickupLat, pickupLng),
-                    width: 40,
-                    height: 40,
-                    child: const Icon(Icons.radio_button_checked,
-                        color: SColors.primary, size: 32),
+          child: (defaultTargetPlatform == TargetPlatform.windows ||
+                  defaultTargetPlatform == TargetPlatform.linux ||
+                  defaultTargetPlatform == TargetPlatform.macOS)
+              ? Container(
+                  color: context.sc.inputBg,
+                  child: Center(
+                    child: Icon(Icons.map_outlined,
+                        color: context.sc.textTertiary, size: 40),
                   ),
-                  Marker(
-                    point: LatLng(dropoffLat, dropoffLng),
-                    width: 40,
-                    height: 40,
-                    child: const Icon(Icons.location_on,
-                        color: SColors.coral, size: 36),
+                )
+              : GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: LatLng(pickupLat, pickupLng),
+                    zoom: 14.0,
                   ),
-                ],
-              ),
-            ],
-          ),
+                  trafficEnabled: true,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  markers: {
+                    Marker(
+                      markerId: const MarkerId('pickup'),
+                      position: LatLng(pickupLat, pickupLng),
+                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                          BitmapDescriptor.hueAzure),
+                      infoWindow: const InfoWindow(title: 'Pickup'),
+                    ),
+                    Marker(
+                      markerId: const MarkerId('dropoff'),
+                      position: LatLng(dropoffLat, dropoffLng),
+                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                          BitmapDescriptor.hueRose),
+                      infoWindow: const InfoWindow(title: 'Dropoff'),
+                    ),
+                  },
+                ),
         ),
 
         // Details
